@@ -12,9 +12,6 @@
                             :r-g-b-list '(1 1 0) :id 300)
 
   (setf *first-camera-position* (obj-int:get-object-pose ?object-designator))
-  (print "Camera position")
-  (print *first-camera-position*)
-  (print "End of camera position")
 
   (let ((?looking-direction *first-camera-position*))
     (perform (an action
