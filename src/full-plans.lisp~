@@ -1,0 +1,104 @@
+(in-package :pp-cust)
+
+(defparameter *object-descriptor* nil)
+(defparameter *bottle-reach-pose* (list (make-pose "base_footprint"  `((0.47291 -0.10198 0.97992) (-0.00060 0.00744 0.00635 0.99995))) (make-pose "base_footprint"  `((0.47068 -0.10217 0.82994) (-0.00060 0.00744 0.00635 0.99995))) ))
+(defparameter *bottle-grasp-pose* (list (make-pose "base_footprint" `((0.62002 -0.10000 0.82560) (0.00008 0.00024 0.00001 1.00000)))))
+
+;;(defparameter *initial-right-reach-poses* (list *object-location-pose* *object-location-pose* *object-location-pose* *object-location-pose*))
+(defparameter *initial-right-reach-poses* *bottle-reach-pose*)
+;;(defparameter *initial-right-reach-poses* (list *bottle-reach-pose* *bottle-reach-pose* *bottle-reach-pose* *bottle-reach-pose*))
+(defparameter *initial-left-reach-poses* (list *bottle-reach-pose* *bottle-reach-pose* *bottle-reach-pose* *bottle-reach-pose*))
+
+;;(defparameter *initial-left-reach-poses* (list *object-location-pose* *object-location-pose* *object-location-pose* *object-location-pose*))
+(defparameter *right-reach-poses* `())
+(defparameter *left-reach-poses* `())
+
+(defparameter *right-grasping-poses* '())
+(defparameter *left-grasping-poses* '())
+(defparameter *grasp* :left-side)
+(defparameter *transform* nil)
+
+(defun end-to-end (object-location robot-location)
+  (spawn-object object-location)
+  (setq *object-descriptor* (make-designator :object `((:at ,object-location)
+                                                       (:pose ,object-location)
+                                                       (:type ,:bottle))))
+  (let ((?navigation-goal robot-location))
+    (exe:perform
+     (desig:an action
+               (type going)
+               (target (a location
+                          (pose ?navigation-goal))))))
+  
+   (let ((?looking-direction (make-pose "map" object-location)))
+    (exe:perform
+     (desig:an action
+                 (type looking)
+                 (target (a location 
+                            (pose ?looking-direction))))))
+  (park-arms)
+  (exe:perform
+     (desig:an action
+               (type setting-gripper)
+               (gripper :right)
+               (position 0.1)))
+  ;;(print *initial-left-reach-poses*)
+  ;;(print *initial-right-reach-poses*)
+  ;;(print (first *initial-right-reach-poses*))
+  ;;(move-arms-in-sequence nil *initial-right-reach-poses*)
+  ;;(move-arms-in-sequence nil *bottle-grasp-pose*)
+  (exe:perform
+   (desig:an action
+             (type reaching)
+             (left-poses *initial-right-reach-poses*)
+             (right-poses *initial-right-reach-poses*)))
+             
+  (exe:perform
+   (desig:an action
+             (type gripping)
+             (gripper :right)
+             (effort 60)
+             (object *object-descriptor*)))
+  (let ((?nav-goal *origin*))
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?nav-goal))))))
+
+  ;;(move-arms-in-sequence nil *initial-right-reach-poses*)
+  ;;(exe:perform
+  ;; (desig:an action
+  ;;               (type reaching)
+  ;;               (left-poses *initial-right-reach-poses*)
+  ;;               (right-poses *initial-right-reach-poses*))))
+
+  ;;(roslisp:ros-info (type-of *left-reach-poses*))
+  ;;(setq *transform* (obj-int:get-object-transform *object-descriptor*))
+  ;;(print *object-descriptor*)
+  ;;(print *transform*)
+  ;;(setq *initial-left-reach-poses* (obj-int:get-object-grasping-poses :bottle-1 :bottle :left *grasp* *transform*))
+  ;;(setq *initial-right-reach-poses* (obj-int:get-object-grasping-poses :bottle-1 :bottle :right *grasp* *transform*))
+  
+;;  (let ((six-poses (extract-pick-up-manipulation-poses :right *initial-left-reach-poses* *initial-right-reach-poses*)))
+    ;;(print six-poses)
+;;    (setq *left-reach-poses* (first six-poses))
+;;    (setq *right-reach-poses* (second six-poses))
+;;    (print (type-of *left-reach-poses*))
+;;    (print (type-of *right-reach-poses*))
+;;    (print *right-reach-poses*)
+;;    (print (type-of (first *right-reach-poses*)))
+;;  (exe:perform
+;;   (desig:an action
+;;                 (type reaching)
+;;                 (left-poses *left-reach-poses*)
+;;                 (right-poses *right-reach-poses*)))
+;;  (setq *left-grasping-poses* (third six-poses))
+;;  (setq *right-grasping-poses* (fourth six-poses))
+;;  (exe:perform
+;;     (desig:an action
+;;              (type grasping)
+;;               (left-poses *left-grasping-poses*)
+;;               (right-poses *right-grasping-poses*)))
+
+;;    )
+)
