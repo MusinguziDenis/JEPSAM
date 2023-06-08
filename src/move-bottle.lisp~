@@ -1,0 +1,60 @@
+(defparameter *base-pose-near-table*
+  (make-pose "map" '((-1.447 -0.15 0.0) (0.0 0.0 -0.7071 0.7071))))
+ 
+(defparameter *downward-look-coordinate*
+  (make-pose "base_footprint" '((0.65335 0.076 0.758) (0 0 0 1))))
+ 
+(defparameter *base-pose-near-counter*
+  (make-pose "map" '((-0.15 2 0) (0 0 -1 0))))
+ 
+(defparameter *final-object-destination*
+  (make-pose "map" '((-0.8 2 0.9) (0 0 0 1))))
+ 
+(defun move-bottle (bottle-spawn-pose)
+  (spawn-object bottle-spawn-pose)
+  (with-simulated-robot
+    (let ((?navigation-goal *base-pose-near-table*))
+      (cpl:par
+        ;; Moving the robot near the table.
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?navigation-goal)))))
+        (perform (a motion 
+                    (type moving-torso)
+                    (joint-angle 0.3)))
+        (park-arms)))
+    ;; Looking towards the bottle before perceiving.
+    (let ((?looking-direction *downward-look-coordinate*))
+      (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+    ;; Detect the bottle on the table.
+    (let ((?grasping-arm :right)
+          (?perceived-bottle (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type bottle)))))))
+      ;; Pick up the bottle
+      (perform (an action
+                   (type picking-up)
+                   (arm ?grasping-arm)
+                   (grasp left-side)
+                   (object ?perceived-bottle)))
+      (park-arm ?grasping-arm)
+      ;; Moving the robot near the counter.
+      (let ((?nav-goal *base-pose-near-counter*))
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?nav-goal))))))
+      ;; Setting the bottle down on the counter
+      (let ((?drop-pose *final-object-destination*))
+        (perform (an action
+                     (type placing)
+                     (arm ?grasping-arm)
+                     (object ?perceived-bottle)
+                     (target (a location 
+                                (pose ?drop-pose))))))
+      (park-arm ?grasping-arm))))
