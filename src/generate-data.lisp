@@ -58,7 +58,7 @@
   (make-pose "base_footprint" '((0.65335 0.076 0.758) (0 0 0 1))))
 
 (defparameter *base-pose-near-table*
-  (make-pose "map" '((-2 -0.5 0.0) (0.0 0.0 -0.7071 0.7071))))
+  (make-pose "map" '((-2.1 -0.5 0.0) (0.0 0.0 -0.7071 0.7071))))
 
 (defparameter *base-pose-near-counter*
 
@@ -163,10 +163,10 @@
   (* 1.0 (cl-tf:z (get-object-dimensions object))))
 
 (defun get-object-width (object)
-  (* 0.7 (cl-tf:y (get-object-dimensions object))))
+  (* 0.7 (cl-tf:y (get-object-dimensions object)))); changed this to increase the separation between the two objects
 
 (defun get-object-depth (object)
-  (* 0.7 (cl-tf:x (get-object-dimensions object))))
+  (* 1.0 (cl-tf:x (get-object-dimensions object)))); changed this to increase the separation between the two objects
 
 (defun get-translation-matrix (x y z)
  (inverse-transformation (cl-tf:make-transform-stamped "base_footprint" "base_footprint" 0.0 (cl-tf:make-3d-vector x y z) (cl-tf:make-quaternion 0.0 0.0 0.0 1.0)))

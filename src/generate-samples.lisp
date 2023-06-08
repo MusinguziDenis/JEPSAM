@@ -1,6 +1,6 @@
 (in-package :pp-cust)
 
-(defparameter *move-command-fraction* 0.333)
+(defparameter *move-command-fraction* 0.05)
 (defparameter *corner-1* '(-2.6 -1.1)) ; -2.7, -1.1
 (defparameter *corner-2* '(-2.1 -1.2)) ; -2.1, -1.3
 (defparameter *corner-3* '(-1.9 -1.1)) ; -1.7, -1.1

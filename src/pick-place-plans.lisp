@@ -116,14 +116,22 @@
                               ?left-retract-poses ?right-retract-poses
                               ?placing-location)
 
+  (print "Placing location")
+  (print ?placing-location)
 
-  (setf *second-camera-position* (first ?right-put-poses))
-  (let ((?looking-direction *second-camera-position*))
-    (perform (an action
+  
+  ;;(setf *second-camera-position* (first ?right-put-poses))
+  (setf *second-camera-position* ?placing-location)
+
+  (if (not *second-camera-position*)
+      (progn
+        (let ((?looking-direction *second-camera-position*))
+            (perform (an action
                  (type looking)
                  (target (a location 
-                            (pose ?looking-direction))))))
+                            (pose ?looking-direction))))))))
 
+  
   (roslisp:ros-info (pick-place place) "Reaching")
   
   (cpl:with-failure-handling
@@ -185,6 +193,14 @@
                (type retracting)
                (left-poses ?left-retract-poses)
                (right-poses ?right-retract-poses))))
+    
+    ;; (if (not *second-camera-position*)
+    ;;   (progn
+    ;;     (let ((?looking-direction *second-camera-position*))
+    ;;         (perform (an action
+    ;;              (type looking)
+    ;;              (target (a location 
+    ;;                         (pose ?looking-direction))))))))
 
     (park-arm ?arm)
 
