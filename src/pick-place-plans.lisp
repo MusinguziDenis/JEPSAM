@@ -1,5 +1,11 @@
 (in-package :pp-cust)
 
+<<<<<<< HEAD
+=======
+(defparameter *first-camera-position* nil)
+(defparameter *second-camera-position* nil)
+
+>>>>>>> 4a6b3ace69fe56c6cd4311e6d20436c3f375bbca
 (cpl:def-cram-function pick-up (?object-designator
                                 ?arm ?gripper-opening ?grip-effort ?grasp
                                 ?left-reach-poses ?right-reach-poses
@@ -7,6 +13,19 @@
                                 ?left-lift-poses ?right-lift-poses)
   (cram-tf:visualize-marker (obj-int:get-object-pose ?object-designator)
                             :r-g-b-list '(1 1 0) :id 300)
+<<<<<<< HEAD
+=======
+
+  (setf *first-camera-position* (obj-int:get-object-pose ?object-designator))
+
+  (let ((?looking-direction *first-camera-position*))
+    (perform (an action
+                 (type looking)
+                 (target (a location 
+                            (pose ?looking-direction))))))
+
+
+>>>>>>> 4a6b3ace69fe56c6cd4311e6d20436c3f375bbca
   (let ((simulation-dir (concatenate 'string "/home/crammel/JEPS_data/" *simulation-id* "/")))
     ;;(print simulation-dir)
     (ensure-directories-exist simulation-dir)
@@ -102,6 +121,18 @@
                               ?left-put-poses ?right-put-poses
                               ?left-retract-poses ?right-retract-poses
                               ?placing-location)
+<<<<<<< HEAD
+=======
+
+
+  (setf *second-camera-position* (first ?right-put-poses))
+  (let ((?looking-direction *second-camera-position*))
+    (perform (an action
+                 (type looking)
+                 (target (a location 
+                            (pose ?looking-direction))))))
+
+>>>>>>> 4a6b3ace69fe56c6cd4311e6d20436c3f375bbca
   (roslisp:ros-info (pick-place place) "Reaching")
   
   (cpl:with-failure-handling
@@ -163,6 +194,12 @@
                (type retracting)
                (left-poses ?left-retract-poses)
                (right-poses ?right-retract-poses))))
+<<<<<<< HEAD
+=======
+
+    (park-arm ?arm)
+
+>>>>>>> 4a6b3ace69fe56c6cd4311e6d20436c3f375bbca
    (let ((simulation-dir (concatenate 'string "/home/crammel/JEPS_data/" *simulation-id* "/")))
     ;;(print simulation-dir)
     (ensure-directories-exist simulation-dir)

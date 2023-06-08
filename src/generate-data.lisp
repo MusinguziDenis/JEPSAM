@@ -252,6 +252,7 @@
       (cpl:fail 'object-nowhere-to-be-found))))
 
 
+
 (defun pick-up-object (?object-type ?perceived-object ?grasping-arm) ;;Muhammed added a new parameter value: object-type
   (let* ((?possible-grasps (list-defined-grasps ?object-type))  ;define all possible grasps ;;Muhammed changed from hardcoded grasps
          (?remaining-grasps (copy-list ?possible-grasps))           ;make a copy to work though when trying each grasp
@@ -317,11 +318,12 @@
   ;;(setup-generation)
   (setf *object-1-params* nil)
   (setf *object-2-params* nil)
-  (print (length objects))
+  ;;(print (length objects))
   (setf *object-1-params* (first objects))
   (if (> (length objects) 1)
       (setf *object-2-params* (second objects)))
   ;;(setup-generation)
+
   (print *object-1-params*)
   (print *object-2-params*)
   (spawn-object (gethash (third *object-1-params*) *pose-hash*)
@@ -368,6 +370,7 @@
           (?grasping-arm :right))
       ;; We update the value of ?grasping-arm according to what the method used
       ;;(print ?perceived-object)
+
       (setf ?grasping-arm (pick-up-object main-object-type ?perceived-object ?grasping-arm))
       (print "--------------------------------------")
       (print (get-object-dimensions ?perceived-object))
@@ -415,6 +418,7 @@
                      (target (a location 
                                 (pose ?drop-pose))))))
       ;;(sleep 0.5)
+
       (park-arm ?grasping-arm)
       (let ((simulation-dir (concatenate 'string "/home/crammel/JEPS_data/" *simulation-id* "/")))
           (btr:png-from-camera-view :png-path (concatenate 'string simulation-dir "10")))

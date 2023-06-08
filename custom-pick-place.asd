@@ -28,6 +28,7 @@
                ;; cram-semantic-map-costmap
                cram-robot-pose-gaussian-costmap
                cram-occupancy-grid-costmap
+
                ;;cram-btr-spatial-relations-costmap
 
                cram-pr2-projection ; for projection process modules

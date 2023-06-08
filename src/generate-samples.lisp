@@ -4,6 +4,7 @@
 (defparameter *corner-1* '(-2.6 -1.1)) ; -2.7, -1.1
 (defparameter *corner-2* '(-2.1 -1.2)) ; -2.1, -1.3
 (defparameter *corner-3* '(-1.9 -1.1)) ; -1.7, -1.1
+
 (defparameter *pickable-objects* '(:bottle :cup :spoon :milk :cereal :breakfast-cereal :bowl :fork :knife))
 (defparameter *placeable-objects* '(:SPOON :RED-METAL-PLATE :MILK :CUP :CUBE :CEREAL :BUTTERMILK :BREAKFAST-CEREAL :BOTTLE :BLUE-METAL-PLATE :MUG :PLATE :MONDAMIN :POT :WEISSWURST :BOWL :FORK :KNIFE :SPATULA :CAP :GLASSES :GLOVE :SHOE))
 (defparameter *ontop-objects* '(:plate :tray :red-metal-plate :blue-metal-plate))
@@ -14,7 +15,9 @@
 
 (defparameter *vector-1* (list (- (first *corner-1*) (first *corner-3*))
                                (- (second *corner-1*) (second *corner-3*))))
+
 (defparameter *put-transforms* (list #'*on-transformation* #'*leftward-transformation* #'*rightward-transformation* #'*backward-transformation* #'*forward-transformation*))
+
 (defparameter *move-transforms* (list #'*leftward-transformation* #'*rightward-transformation* #'*backward-transformation* #'*forward-transformation*))
 
 (defparameter *vector-2* (list (- (first *corner-2*) (first *corner-3*))
@@ -125,6 +128,7 @@
         (setf *obj2-type* (random-choice *placeable-objects*))
         (setf *obj1-color* (random-choice *available-colors*))
         (setf *obj2-color* (random-choice *available-colors*))
+
         ;; if the transformation is top
         (if (eq *transform* #'*on-transformation*)
             ;; then choose from objects that can be placed upon and make sure it is spawned at a viable location
