@@ -1,0 +1,318 @@
+(in-package :pp-cust)
+
+(defparameter *object-location* '((-2.1 -1. 0.82) (0 0 0 1)))
+(defparameter *auxillary-location* '((-2.1 -1.2 0.82) (0 0 0 1)))
+(defparameter *object-location-pose* (make-pose "map" *object-location*))
+(defparameter b 500)
+(defparameter *simulation-id* "3000")
+
+(defparameter *base-pose-near-table*
+  (make-pose "map" '((-2 -0.5 0.0) (0.0 0.0 -0.7071 0.7071))))
+ 
+(defparameter *downward-look-coordinate*
+  (make-pose "base_footprint" '((0.65335 0.076 0.758) (0 0 0 1))))
+
+(defparameter *auxillary-look-coordinate*
+  (make-pose "base_footprint" '((1.15335 0.076 0.758) (0 0 0 1))))
+
+(defparameter *base-pose-near-counter*
+  (make-pose "map" '((-0.15 2 0) (0 0 -1 0))))
+
+(defparameter *origin*
+  (make-pose "map" `((0.0 0.0 0.0) (0 0 -1 0))))
+
+(defparameter *final-object-destination*
+  (make-pose "map" '((-0.8 2 0.9) (0 0 0 1))))
+
+(defparameter *final-destination* nil)
+(defparameter *smart-destination* nil)
+(defparameter *action* nil)
+(defparameter *description* "")
+
+(defun move-bottle (bottle-spawn-pose)
+  (spawn-object bottle-spawn-pose)
+  (with-simulated-robot
+    (let ((?navigation-goal *base-pose-near-table*))
+      (cpl:par
+        ;; Moving the robot near the table.
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?navigation-goal)))))
+        (perform (a motion 
+                    (type moving-torso)
+                    (joint-angle 0.3)))
+        (park-arms)))
+    ;; Looking towards the bottle before perceiving.
+    (let ((?looking-direction *downward-look-coordinate*))
+      (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+    ;; Detect the bottle on the table.
+    (let ((?grasping-arm :right)
+          (?perceived-bottle (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type bottle)))))))
+      (print "Pose:------------------------------------")
+      ;;(print (obj-int:get-object-pose ?perceived-bottle))
+      (print "End of pose:------------------------------------")
+      ;; Pick up the bottle
+      (perform (an action
+                   (type picking-up)
+                   (arm ?grasping-arm)
+                   (grasp left-side)
+                   (object ?perceived-bottle)))
+      (park-arm ?grasping-arm)
+      ;; Moving the robot near the counter.
+      (let ((?nav-goal *base-pose-near-counter*))
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?nav-goal))))))
+      ;; Setting the bottle down on the counter
+      (let ((?drop-pose *final-object-destination*))
+        (perform (an action
+                     (type placing)
+                     (arm ?grasping-arm)
+                     (object ?perceived-bottle)
+                     (target (a location 
+                                (pose ?drop-pose))))))
+      (park-arm ?grasping-arm))))
+
+
+
+(defun get-translation-matrix (x y z)
+ (inverse-transformation (cl-tf:make-transform-stamped "base_footprint" "base_footprint" 0.0 (cl-tf:make-3d-vector x y z) (cl-tf:make-quaternion 0.0 0.0 0.0 1.0)))
+  )
+
+(defun left-of (pose &optional (y 0.3))
+  (print pose)
+  (cl-tf:pose->pose-stamped "base_footprint" 0.0
+  (apply-transformation
+   (get-translation-matrix 0 (- 0 y) 0 ) pose)))
+
+(defun right-of (pose &optional (y 0.3))
+  (print pose)
+  (cl-tf:pose->pose-stamped "base_footprint" 0.0
+  (apply-transformation
+   (get-translation-matrix 0 y 0 ) pose)))
+
+(defun forward-of (pose &optional (x 0.15))
+  (print pose)
+  (cl-tf:pose->pose-stamped "base_footprint" 0.0
+  (apply-transformation
+   (get-translation-matrix x 0 0 ) pose)))
+
+(defun backward-of (pose &optional (x 0.15))
+  (print pose)
+  (cl-tf:pose->pose-stamped "base_footprint" 0.0
+  (apply-transformation
+   (get-translation-matrix (- 0 x) 0 0 ) pose)))
+
+
+
+(defun move-bottle-smart (bottle-spawn-pose &optional
+                                              (distance 0.2))
+  (spawn-object bottle-spawn-pose)
+  (with-simulated-robot
+    (let ((?navigation-goal *base-pose-near-table*))
+      (cpl:par
+        ;; Moving the robot near the table.
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?navigation-goal)))))
+        (perform (a motion 
+                    (type moving-torso)
+                    (joint-angle 0.3)))
+        (park-arms)))
+    ;; Looking towards the bottle before perceiving.
+    (let ((?looking-direction *downward-look-coordinate*))
+      (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+    ;; Detect the bottle on the table.
+    (let ((?grasping-arm :right)
+          (?perceived-bottle (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type bottle)))))))
+      (setq *smart-destination* (obj-int:get-object-pose ?perceived-bottle))
+      ;; Pick up the bottle
+      (perform (an action
+                   (type picking-up)
+                   (arm ?grasping-arm)
+                   (grasp left-side)
+                   (object ?perceived-bottle)))
+      (park-arm ?grasping-arm)
+      ;; Moving the robot near the counter.
+      ;; Setting the bottle down on the counter
+      (print "stop 1")
+      (let ((?drop-pose (backward-of *smart-destination* distance)))
+        (print ?drop-pose)
+        (perform (an action
+                     (type placing)
+                     (arm ?grasping-arm)
+                     (object ?perceived-bottle)
+                     (target (a location 
+                                (pose ?drop-pose))))))
+      (park-arm ?grasping-arm))))
+
+
+
+(defun put-bottle (bottle-spawn-pose)
+  (spawn-object bottle-spawn-pose)
+  (spawn-object '((-0.8 1.8 0.85) (0 0 0 1)) :cube 'cube-1)
+  (with-simulated-robot
+    (let ((?navigation-goal *base-pose-near-table*))
+      (cpl:par
+        ;; Moving the robot near the table.
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?navigation-goal)))))
+        (perform (a motion 
+                    (type moving-torso)
+                    (joint-angle 0.3)))
+        (park-arms)))
+    ;; Looking towards the bottle before perceiving.
+    (let ((?looking-direction *downward-look-coordinate*))
+      (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+    ;; Detect the bottle on the table.
+    (let ((?grasping-arm :right)
+          (?perceived-bottle (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type bottle)))))))
+      (print "Pose:------------------------------------")
+      ;;(print (obj-int:get-object-pose ?perceived-bottle))
+      (print "End of pose:------------------------------------")
+      ;; Pick up the bottle
+      (perform (an action
+                   (type picking-up)
+                   (arm ?grasping-arm)
+                   (grasp left-side)
+                   (object ?perceived-bottle)))
+      (park-arm ?grasping-arm)
+      ;; Moving the robot near the counter.
+      (let ((?nav-goal *base-pose-near-counter*))
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?nav-goal))))))
+      ;; Setting the bottle down on the counter
+
+     (let ((?grasping-arm :right)
+          (?perceived-cube (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type cube)))))))
+       
+  
+      
+    (setq *final-destination* (obj-int:get-object-pose ?perceived-cube)))
+      
+      (let ((?drop-pose (left-of *final-destination*)))
+        (perform (an action
+                     (type placing)
+                     (arm ?grasping-arm)
+                     (object ?perceived-bottle)
+                     (target (a location 
+                                (pose ?drop-pose))))))
+      (park-arm ?grasping-arm))))
+
+
+(defun motor-program-test (bottle-spawn-pose &key (object-type :bottle)
+                                            (auxillary-type :spoon)
+                                              (auxillary nil)
+                                              (transport-verb "put")
+                                              (object-color '(1 0 0))
+                                              (auxillary-color '(0 1 0))
+                                              (motion-phrase "left")
+                                              (auxillary-spawn-pose *auxillary-location*)
+                                          (distance 0.2))
+  (setq *description* "")
+  (spawn-object bottle-spawn-pose object-type 'object object-color)
+  (if (eql transport-verb "put")
+      (progn
+        (setq *description* (concatenate 'string *description* "put"))
+      (spawn-object auxillary-spawn-pose auxillary-type 'auxillary auxillary-color)))
+ 
+      (setq *description* (concatenate 'string *description* " " (string object-type)))
+  (with-simulated-robot
+    (let ((?navigation-goal *base-pose-near-table*))
+      (cpl:par
+        ;; Moving the robot near the table.
+        (perform (an action
+                     (type going)
+                     (target (a location 
+                                (pose ?navigation-goal)))))
+        (perform (a motion 
+                    (type moving-torso)
+                    (joint-angle 0.3)))
+        (park-arms)))
+    ;; Looking towards the bottle before perceiving.
+    (let ((?looking-direction *downward-look-coordinate*))
+      (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+    ;; Detect the bottle on the table.
+    (let* ((?grasping-arm :right)
+           (?object-type object-type)
+          (?perceived-bottle (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type ?object-type)))))))
+      (setq *smart-destination* (obj-int:get-object-pose ?perceived-bottle))
+      ;; Pick up the bottle
+      (perform (an action
+                   (type picking-up)
+                   (arm ?grasping-arm)
+                   (grasp left-side)
+                   (object ?perceived-bottle)))
+      (park-arm ?grasping-arm)
+      (sleep 0.5)
+      (if (eql transport-verb "put")
+          (let* ((?grasping-arm :right)
+                 (?auxillary-type auxillary-type)
+                 (?looking-direction *auxillary-look-coordinate*)
+                 (?ignorable
+                  (perform (an action
+                   (type looking)
+                   (target (a location 
+                              (pose ?looking-direction))))))
+                 (?ignorable-2 (sleep 0.5))
+                (?perceived-auxillary (perform (an action
+                                          (type detecting)
+                                          (object (an object 
+                                                      (type ?auxillary-type)))))))
+      (setq *smart-destination* (obj-int:get-object-pose ?perceived-auxillary))
+            ))
+      (print *smart-destination*)
+      (if (eql motion-phrase "left")
+          (progn
+            (setq *description* (concatenate 'string *description* " to the left of"))
+            (setq *action* #'left-of)))
+      (if (eql transport-verb "put")
+      (setq *description* (concatenate 'string *description* " " (string auxillary-type))))
+  (print *description*)
+          
+      ;; Moving the robot near the counter.
+      ;; Setting the bottle down on the counter
+      (print "stop 1")
+      (let ((?drop-pose (apply *action* (list *smart-destination* distance))))
+        (print ?drop-pose)
+        (perform (an action
+                     (type placing)
+                     (arm ?grasping-arm)
+                     (object ?perceived-bottle)
+                     (target (a location 
+                                (pose ?drop-pose))))))
+      (park-arm ?grasping-arm))))

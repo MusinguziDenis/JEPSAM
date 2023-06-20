@@ -1,0 +1,55 @@
+AEJEPS:
+  ## Encoder
+  EMBEDDING_DIM         : 300                # Embedding dimension of the text embedding module in AEJEPS
+  HIDDEN_DIM            : 512                   # The encoder's hidden representation size
+  NUM_LAYERS_ENCODER    : 2             # The number of layers in the Encoder LSTM
+  BATCH_FIRST           : True                 # Whether the first dimension is the batch dimension or the time dimension changing this requires significant changes to architectures of many of the models
+  DROPOUT_ENCODER       : 0.2              #
+  BIDIRECTIONAL_ENCODER : True       # Whether to process the encoder input sequence in both directions or in left-to-right manner
+  
+  
+  ## Decoder
+  ### Action desc
+  NUM_LAYERS_MOTOR      : 1               # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
+  ACTIVATION_MOTOR      : 'Gelu'          # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  DROPOUT_MOTOR         : 0.2                # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  
+  ### Motor cmd
+  NUM_LAYERS_LANG       : 2                # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
+  ACTIVATION_LANG       : 'Gelu'           # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  DROPOUT_LANG          : 0.2 
+
+
+DATASET:
+  PATH                  : "../dataset/"         
+  VOCABULARY_SIZE       : 10_000 # number words in the dataset
+  IMAGE_SIZE            : 224  # Image size
+  SOS                   : 2    # [CLS] token
+  EOS                   : 3    # [SEP] token
+  TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
+  ACTION_DESC_MAX_LEN   : 64
+  CMD_MAX_LEN           : 128
+  VALIDATION_PCT        : .25
+  NUM_COMMANDS          : 20   # The number of motor commands in the dataset
+  TRAIN_TFMS        : {
+        "Resize"                  : {"height": 224,"width": 224},
+        "RandomBrightnessContrast": {'p': 0.2},
+  }
+  TEST_TFMS        : {
+        "Resize"                  : {"height": 224,"width": 224},
+  }  
+TRAIN:
+  BATCH_SIZE        : 16    # Batch size to use when training the dataset
+  MAX_EPOCH         : 500   # The maximum number epochs to train the model for
+  GPU               : True # Whether to use GPU or not when it is available
+  NUM_WORKERS       : 2
+
+MODEL:
+  LEARNING_RATE     : 1e-3                  # The learning rate that will be used by optimizer(s)
+  REDUCTION         : mean                      # Computes the mean of the loss over a batch of data as a loss (can also be sum)
+  CHECKPOINT_DIR    : checkpoints/         # The directory where checkpoints are to be saved
+  OPTIMIZER         : "AdamW" 
+
+
+RUN:
+  MODE: train_aejeps
