@@ -140,12 +140,14 @@ class JEPSAMDataset(Dataset):
             "in_state": in_state,
             "goal_state": goal_state,
             "action_desc": {
-                "raw": s.action_description,
-                "ids": action_enc.input_ids,
+                "raw"   : s.action_description,
+                "ids"   : action_enc.input_ids,
+                "length": s.len_action_desc
             },
             "motor_cmd": {
-                "raw": s.motor_cmd,
-                "ids": cmd_enc.input_ids,
+                "raw"   : s.motor_cmd,
+                "ids"   : cmd_enc.input_ids,
+                "length": s.len_motor_cmd
             }
         }
 
@@ -225,8 +227,10 @@ if __name__ == "__main__":
         print("In\t\t:", in_state.shape)
         print("Goal\t\t:", goal_state.shape)
         print("Action desc\t:", ad["ids"].shape)
-        print("CMD\t\t:", cmd["ids"].shape)
+        print("Action desc (len)\t:", ad["length"].shape)
 
+        print("CMD\t\t:", cmd["ids"].shape)
+        print("CMD(len)\t\t:", cmd["length"].shape)
         break
 
     logging.info("\n\n>> val data loader")
@@ -236,6 +240,8 @@ if __name__ == "__main__":
         print("In\t\t:", in_state.shape)
         print("Goal\t\t:", goal_state.shape)
         print("Action desc\t:", ad["ids"].shape)
-        print("CMD\t\t:", cmd["ids"].shape)
+        print("Action desc (len)\t:", ad["length"].shape)
 
+        print("CMD\t\t:", cmd["ids"].shape)
+        print("CMD(len)\t\t:", cmd["length"].shape)
         break

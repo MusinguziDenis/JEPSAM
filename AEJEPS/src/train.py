@@ -41,7 +41,7 @@ def run_AEJEPS(args, cfg):
     criterion = get_loss_func(loss_type)(reduction="none")
 
     optimizer = optim.Adam(
-        model.parameters(), lr=cfg.MODEL.LEARNING_RATE, betas=(0.5, 0.999))
+        model.parameters(), lr=float(cfg.MODEL.LEARNING_RATE), betas=(0.5, 0.999))
 
     print("Started Autoencoder JEPS training")
     for epoch in range(num_epochs):

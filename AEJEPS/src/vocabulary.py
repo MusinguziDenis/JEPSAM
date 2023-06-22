@@ -48,3 +48,5 @@ MOTOR_COMMANDS = [
 
 if __name__ == '__main__':
     print("#tokens: ", len(ACTION_DESCRIPTION)+len(MOTOR_COMMANDS))
+    print("#tokens: ", len(ACTION_DESCRIPTION))
+    print("#tokens: ", len(MOTOR_COMMANDS))
