@@ -4,19 +4,26 @@
 
 from addict import Dict
 
+import os.path as osp
+import pandas as pd
+
 import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
-
-import torchvision.models as models
+import torchvision.models as torchvision_models
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 import numpy as np
 from einops import rearrange
 import math
 from torch.nn.functional import one_hot
+
+from torchinfo import summary
+
 from utils.parser import load_config
 from utils.model_utils import freeze_module
+
+from dataloader import get_dataloaders
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -484,14 +491,159 @@ class AutoencoderJEPS(nn.Module):
         goal_image_rec = self.hidden2img(conv_in)
         return goal_image_rec, torch.cat(lang_out, 1), torch.cat(motor_out, 1)
 
+## Summer 2023
+
+def get_cnn_backbone(
+    cfg:Dict, 
+    backbone_name:str="resnet50", 
+    freeze:bool=True,
+    fc_out:int=None
+):
+    backbone = getattr(torchvision_models, backbone_name)(weights=cfg.MODEL.CNN_BACKBONES[backbone_name])
+    
+    # freeze backbone if specified
+    if freeze:
+        for param in backbone.parameters():
+            param.requires_grad = False
+    
+    if fc_out is not None:
+        # resnet-based models
+        if "resnet" in backbone_name.lower():
+            backbone.fc = nn.Linear(in_features=backbone.fc.in_features, out_features=fc_out)
+
+        if "convnext" in backbone_name.lower():
+            pass
+            
+        if "densenet" in backbone_name.lower():
+            pass
+
+    return backbone
+
+class JEPSAMEncoder(nn.Module):
+    def __init__(
+        self, 
+        cfg: Dict, 
+        cnn_backbone_name:str="resnet50", 
+        cnn_fc_out:int=512
+    ):
+        super().__init__()
+        
+        self.embedding = nn.Embedding(cfg.DATASET.VOCABULARY_SIZE, cfg.AEJEPS.EMBEDDING_DIM)
+        
+        self.image_feature_extractor = get_cnn_backbone(
+            cfg=cfg,
+            backbone_name=cnn_backbone_name,
+            fc_out=cnn_fc_out
+        )
+        
+        # features mixer
+        encoder_input_dim = cfg.AEJEPS.EMBEDDING_DIM + 2 * self.image_feature_extractor.fc.in_features + cfg.DATASET.NUM_COMMANDS
+
+        self.feature_mixing = nn.LSTM(
+            input_size=cfg.AEJEPS.EMBEDDING_DIM, 
+            hidden_size=cfg.AEJEPS.HIDDEN_DIM, 
+            num_layers=cfg.AEJEPS.NUM_LAYERS_ENCODER,
+            dropout=cfg.AEJEPS.ENCODER_DROPOUT, 
+            bidirectional=cfg.AEJEPS.IS_BIDIRECTIONAL
+        )
+        
+    
+    def forward(self, inp:dict, mode:str='train'):
+        """
+        
+        """
+        B, _, max_len = inp["action_desc"]["ids"].shape
+
+        # 1. Image feature extraction
+        feats_per = self.image_feature_extractor(inp["in_state"])
+        feats_per = feats_per.repeat((1, max_len)).reshape((B, max_len, -1))
+        
+        if mode =="train":
+            feats_goal = self.image_feature_extractor(inp["goal_state"])
+            feats_goal = feats_goal.repeat((1, max_len)).reshape((B, max_len, -1))
+        else:
+            pass
+        
+        # print(f"feats_per: {feats_per.shape}")
+        # print(f"feats_goal: {feats_goal.shape}")
+        
+        # 2. Text feature extraction
+        action_desc_emb = self.embedding(inp["action_desc"]["ids"])#.squeeze(1)
+        
+        if mode =="train":
+            motor_cmd_emb = self.embedding(inp["motor_cmd"]["ids"])#.squeeze(1)
+            # For each batch entry determine the length of the longest of the text sequence
+            lengths_max = [max(ltext, lcmd)
+                           for ltext, lcmd in zip(inp["action_desc"]["length"], inp["motor_cmd"]["length"])]
+        else:
+            lengths_max = [ltext for ltext in inp["action_desc"]["length"]]     
+        # 3. Feature Fusion
+        # Optional: add a projection layer that will 
+        # print(feats_per.shape, feats_goal.shape, action_desc_emb.shape, motor_cmd_emb.shape)
+        
+        concat_feats = torch.cat((
+            feats_per.unsqueeze(1), 
+            feats_goal.unsqueeze(1), 
+            action_desc_emb, 
+            motor_cmd_emb
+        ), dim=2).squeeze(1)
+        
+        print(f"Fused feats: {concat_feats.shape}")
+        
+        # 4. Feature mixing
+        packed_input = pack_padded_sequence(
+            input=concat_feats, 
+            lengths=lengths_max, 
+            enforce_sorted=False, 
+            batch_first=True
+        )
+        
+        output, (hidden, carousel) = self.feature_mixing(packed_input)
+        
+        output, len_output = pad_packed_sequence(output, batch_first= True)
+        
+        return output, len_output, hidden, carousel
+    
 
 if __name__ == "__main__":
 
     cfg = load_config()
 
-    aejeps = AutoencoderJEPS(cfg)
+    # aejeps = AutoencoderJEPS(cfg)
+    # print(aejeps)
 
-    print(aejeps)
+    encoder = JEPSAMEncoder(
+    cnn_backbone_name="resnet18",
+        cfg=cfg, 
+        cnn_fc_out = cfg.AEJEPS.HIDDEN_DIM
+    )
+
+    tdf = pd.read_csv(
+        osp.join(cfg.DATASET.PATH, "updated_train.csv")
+    )
+
+    tdf.head()
+    train_dl, _ = get_dataloaders(
+        train_df=tdf,
+        cfg=cfg
+    )
+
+    for data in train_dl:
+        pass
+        break
+
+
+    o, lo, h, c = encoder(data)
+
+    print(o.shape)
+
+    # model summary
+    summary(
+        model=encoder,
+        input_dict=data,
+        col_names=["kernel_size", "num_params"],
+
+    )
 
     # print("Testing AEJEPS in mode text")
     # goal_image, lang, cmd = aejeps(*batch, mode='train')
