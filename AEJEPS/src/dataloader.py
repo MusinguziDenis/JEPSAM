@@ -26,6 +26,7 @@ logging.basicConfig(level="INFO")
 class JEPSAMDataset(Dataset):
     def __init__(
         self,
+        cfg=None,
         df: pd.DataFrame = None,
         config_file_path: str = None,
         data_path: str = None,
@@ -37,17 +38,23 @@ class JEPSAMDataset(Dataset):
         try:
             args = parse_args()
         except:
-            pass
+            args = None
 
-        if config_file_path is not None:
-            self.cfg = load_config(config_file_path=config_file_path)
+        if cfg:
+            self.cfg = cfg
+            self.data_path = cfg.DATASET.PATH
         else:
-            self.cfg = load_config(config_file_path=args.cfg_path)
+            if config_file_path is not None:
+                self.cfg = load_config(config_file_path=config_file_path)
+            else:
+                self.cfg = load_config(config_file_path=args.cfg_path)
 
-        if data_path is not None:
-            self.data_path = data_path
-        else:
-            self.data_path = args.data_path
+            # get data path from args
+            if data_path is not None:
+                self.data_path = data_path
+            else:
+                if args:
+                    self.data_path = args.data_path
 
         if df is not None:
             self.df = df
@@ -141,12 +148,12 @@ class JEPSAMDataset(Dataset):
             "goal_state": goal_state,
             "action_desc": {
                 "raw"   : s.action_description,
-                "ids"   : action_enc.input_ids,
+                "ids"   : action_enc.input_ids.long(),
                 "length": s.len_action_desc
             },
             "motor_cmd": {
                 "raw"   : s.motor_cmd,
-                "ids"   : cmd_enc.input_ids,
+                "ids"   : cmd_enc.input_ids.long(),
                 "length": s.len_motor_cmd
             }
         }
@@ -154,7 +161,7 @@ class JEPSAMDataset(Dataset):
         return sample
 
 
-def get_dataloaders(args, cfg, train_df: pd.DataFrame, val_df: pd.DataFrame = None) -> tuple:
+def get_dataloaders(cfg, train_df: pd.DataFrame, val_df: pd.DataFrame = None) -> tuple:
 
     val_pct = cfg.DATASET.VALIDATION_PCT
 
@@ -167,8 +174,8 @@ def get_dataloaders(args, cfg, train_df: pd.DataFrame, val_df: pd.DataFrame = No
         val = train_df[~random_indices]
 
     # datasets
-    train_ds = JEPSAMDataset(df=train)
-    val_ds = JEPSAMDataset(df=val)
+    train_ds = JEPSAMDataset(df=train, cfg=cfg)
+    val_ds = JEPSAMDataset(df=val, cfg=cfg)
 
     logging.info(
         f"Prepared {len(train_ds)} training samples and {len(val_ds)} validation samples ")
@@ -217,7 +224,6 @@ if __name__ == "__main__":
 
     train_dl, val_dl = get_dataloaders(
         train_df=tdf,
-        args=args,
         cfg=cfg
     )
     logging.info("\n>> train data loader")

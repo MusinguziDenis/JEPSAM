@@ -22,8 +22,8 @@ def load_config(config_file_path: str = "configs/aejeps_cfg.yaml") -> Dict:
     return Dict(cfg_dict)
 
 
-def parse_args():
-    cfg = load_config()
+def parse_args(config_file_path: str = "configs/aejeps_cfg.yaml"):
+    cfg = load_config(config_file_path)
 
     parser = argparse.ArgumentParser(
         description=("JEPS memory implementations.")

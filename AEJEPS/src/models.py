@@ -422,6 +422,7 @@ class AutoencoderJEPS(nn.Module):
 
         packed_input = pack_padded_sequence(
             concat_feats, lengths_max, enforce_sorted=False, batch_first=self.batch_first)
+        
         output, (hidden, carousel) = self.encoder(packed_input)
 
         # hidden
