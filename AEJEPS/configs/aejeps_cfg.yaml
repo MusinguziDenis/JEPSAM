@@ -2,6 +2,7 @@ AEJEPS:
   ## Encoder
   EMBEDDING_DIM         : 256                # Embedding dimension of the text embedding module in AEJEPS
   HIDDEN_DIM            : 256                   # The encoder's hidden representation size
+  CNN_FC_DIM            : 256
   NUM_LAYERS_ENCODER    : 2             # The number of layers in the Encoder LSTM
   BATCH_FIRST           : True                 # Whether the first dimension is the batch dimension or the time dimension changing this requires significant changes to architectures of many of the models
   ENCODER_DROPOUT       : 0.35              #
@@ -10,26 +11,30 @@ AEJEPS:
   
   ## Decoder
   ### Action desc
-  NUM_LAYERS_MOTOR      : 1               # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
-  ACTIVATION_MOTOR      : 'Gelu'          # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
-  MOTOR_DROPOUT         : 0.2                # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  NUM_LAYERS_MOTOR      : 2               # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
+  ACTIVATION_MOTOR      : 'Tanh'          # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  MOTOR_DROPOUT         : 0.25                # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
   
   ### Motor cmd
   NUM_LAYERS_LANG       : 2                # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
-  ACTIVATION_LANG       : 'Gelu'           # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
-  LANG_DROPOUT          : 0.2 
+  ACTIVATION_LANG       : 'Tanh'           # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
+  LANG_DROPOUT          : 0.25 
+
+  ### Image decoder
+  HIDDEN_TO_CONV        : 1024
+  DECODER_ACTIVATION    : "Tanh"
 
 
 DATASET:
-  PATH                  : "../../dataset/"         
-  VOCABULARY_SIZE       : 300 # number words in the dataset
+  PATH                  : "../dataset/"         
+  VOCABULARY_SIZE       : 65 # number of unique  words in the dataset
   IMAGE_SIZE            : 224  # Image size
-  SOS                   : 2    # [CLS] token
-  EOS                   : 3    # [SEP] token
-  TOKENIZER_PATH        : PATH+"jeps_tokenizer.json"
+  SOS                   : 48    # [SOS] token index in vocabulary
+  EOS                   : 46    # [EOS] token index in vocabulary
+  TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
   ACTION_DESC_MAX_LEN   : 64
   CMD_MAX_LEN           : 128
-  VALIDATION_PCT        : .25
+  VALIDATION_PCT        : .3
   NUM_COMMANDS          : 46   # The number of motor commands in the dataset
   TRAIN_TFMS        : {
         "Resize"                  : {"height": 224,"width": 224},
@@ -40,8 +45,9 @@ DATASET:
   }  
 TRAIN:
   BATCH_SIZE        : 4    # Batch size to use when training the dataset
-  MAX_EPOCH         : 500   # The maximum number epochs to train the model for
+  MAX_EPOCH         : 10 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
+  GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4
 
 MODEL:
@@ -53,7 +59,7 @@ MODEL:
     "efficientnet_b4" : "EfficientNet_B4_Weights.IMAGENET1K_V1"
 
   }
-  LEARNING_RATE     : 1e-3                  # The learning rate that will be used by optimizer(s)
+  LEARNING_RATE     : 1e-2                  # The learning rate that will be used by optimizer(s)
   REDUCTION         : mean                      # Computes the mean of the loss over a batch of data as a loss (can also be sum)
   CHECKPOINT_DIR    : checkpoints/         # The directory where checkpoints are to be saved
   OPTIMIZER         : "AdamW" 
@@ -61,3 +67,8 @@ MODEL:
 
 RUN:
   MODE: train_aejeps
+
+WANDB:
+  PROJECT_ID        : ""
+  GROUP             : ""
+  USERNAME          : ""

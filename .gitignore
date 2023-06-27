@@ -1,2 +1,7 @@
 
 dataset/
+AEJEPS/checkpoints/
+.ipynb_checkpoints 
+AEJEPS/.ipynb_checkpoints/
+AEJEPS/notebooks/.ipynb_checkpoints/
+AEJEPS/src/.ipynb_checkpoints/ 

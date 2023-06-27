@@ -46,12 +46,22 @@ class AEJEPSLoss(nn.Module):
         -------
         The computed loss
         """
+        
+        # try Structural Similarity
         L_img = nn.functional.mse_loss(
             goal_img_out, goal_img, reduction=self.reduction)
+        
+        # change to WER or PERPLEXITY
         L_text = nn.functional.mse_loss(
-            text_out, text_target, reduction=self.reduction)
+            text_out.float(), 
+            text_target.float(), 
+            reduction=self.reduction
+        )
+        
+        # change to WER or PERPLEXITY
         L_cmd = nn.functional.mse_loss(
             cmd_out.float(), cmd_target.float(), reduction=self.reduction)
+        
         return L_img, L_text, L_cmd
 
 
