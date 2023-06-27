@@ -391,7 +391,7 @@ class JEPSAMDecoder(nn.Module):
     
 class JEPSAM(nn.Module):
     """
-    This class is an Autoencoder based deep learning implementation of a Joint Episdoic, Procedural, and Semantic Memory.
+    This class is an Autoencoder based deep learning implementation of a Joint Episdoic, Procedural, and Semantic Asociative Memory.
 
     Parameters
     ----------

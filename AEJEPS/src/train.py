@@ -178,7 +178,7 @@ def validate(
     print("Validation results:")
     print('[Epoch %d/%d][Step %d/%d]\tAvg. Loss: %.5f\t'
             % (epoch+1, cfg.TRAIN.MAX_EPOCH, batch_idx, len(dataloader), loss))
-
+    print()
     return loss
 
 
@@ -215,7 +215,8 @@ def run_AEJEPS(args, cfg):
             momentum=.9
         )
 
-    ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/AEJEPS_{time.time()}.pth"
+    # ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/AEJEPS_{time.time()}.pth"
+    ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/jepsam_best.bin"
 
     # training loop
     print("Started Autoencoder JEPS training")
@@ -240,7 +241,10 @@ def run_AEJEPS(args, cfg):
 
         if val_loss < best_loss:
             print(f"Loss improvement: from {best_loss:.5f}-->{val_loss:.5f} \nSaving checkpoint to ", ckpt_path)
-            torch.save(model.state_dict(), ckpt_path)
+            torch.save({
+                "mode_state_dict": model.state_dict(),
+                "best_score": val_loss
+                }, ckpt_path)
 
             best_loss = val_loss
 
