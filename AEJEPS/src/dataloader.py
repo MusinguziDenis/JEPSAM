@@ -455,16 +455,16 @@ if __name__ == "__main__":
             print("CMD\t\t\t:", cmd.shape)
             print("CMD(len)\t\t:", cmd_lens.shape)
             print()
-            break
+            # break
 
-        logging.info("\n>> val data loader")
-        print(f"# validation batches\t: {len(val_dl)}")
-        for data in val_dl:
-            in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data[0], data[1], data[2], data[3], data[4], data[5]
-            print("In\t\t\t:", in_state.shape)
-            print("Goal\t\t\t:", goal_state.shape)
-            print("Action desc\t\t:", ad.shape)
-            print("Action desc (len)\t:", ad_lens.shape)
-            print("CMD\t\t\t:", cmd.shape)
-            print("CMD(len)\t\t:", cmd_lens.shape)
-            break
+        # logging.info("\n>> val data loader")
+        # print(f"# validation batches\t: {len(val_dl)}")
+        # for data in val_dl:
+        #     in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data[0], data[1], data[2], data[3], data[4], data[5]
+        #     print("In\t\t\t:", in_state.shape)
+        #     print("Goal\t\t\t:", goal_state.shape)
+        #     print("Action desc\t\t:", ad.shape)
+        #     print("Action desc (len)\t:", ad_lens.shape)
+        #     print("CMD\t\t\t:", cmd.shape)
+        #     print("CMD(len)\t\t:", cmd_lens.shape)
+        #     break
