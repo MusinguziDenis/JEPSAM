@@ -372,7 +372,8 @@ def get_dataloaders(
         shuffle=True,
         num_workers=cfg.TRAIN.NUM_WORKERS,
         pin_memory=True,
-        collate_fn=train_ds.collate_fn if dataset_module == SimpleJEPSAMDataset else None
+        collate_fn=train_ds.collate_fn if dataset_module == SimpleJEPSAMDataset else None,
+        drop_last=True
     )
 
     val_dl = DataLoader(
@@ -381,7 +382,8 @@ def get_dataloaders(
         shuffle=False,
         num_workers=cfg.TRAIN.NUM_WORKERS,
         pin_memory=True,
-        collate_fn=val_ds.collate_fn if dataset_module == SimpleJEPSAMDataset else None
+        collate_fn=val_ds.collate_fn if dataset_module == SimpleJEPSAMDataset else None,
+        drop_last=True
 
     )
 
@@ -455,7 +457,7 @@ if __name__ == "__main__":
             print("CMD\t\t\t:", cmd.shape)
             print("CMD(len)\t\t:", cmd_lens.shape)
             print()
-            # break
+            break
 
         # logging.info("\n>> val data loader")
         # print(f"# validation batches\t: {len(val_dl)}")

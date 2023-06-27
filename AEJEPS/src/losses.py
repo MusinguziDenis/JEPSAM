@@ -60,7 +60,10 @@ class AEJEPSLoss(nn.Module):
         
         # change to WER or PERPLEXITY
         L_cmd = nn.functional.mse_loss(
-            cmd_out.float(), cmd_target.float(), reduction=self.reduction)
+            cmd_out.float(), 
+            cmd_target.float(), 
+            reduction=self.reduction
+        )
         
         return L_img, L_text, L_cmd
 

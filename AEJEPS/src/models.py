@@ -389,7 +389,6 @@ class JEPSAMDecoder(nn.Module):
         """
         return self.tokenizer.batch_decode(predictions.argmax(dim=-1))
     
-
 class JEPSAM(nn.Module):
     """
     This class is an Autoencoder based deep learning implementation of a Joint Episdoic, Procedural, and Semantic Memory.
