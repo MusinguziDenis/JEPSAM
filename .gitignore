@@ -6,7 +6,7 @@ AEJEPS/.ipynb_checkpoints/
 AEJEPS/notebooks/.ipynb_checkpoints/
 AEJEPS/src/.ipynb_checkpoints/ 
 AEJEPS/checkpoints/
-
+AEJEPS/src/checkpoints/
 ## Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
