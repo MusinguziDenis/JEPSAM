@@ -25,12 +25,12 @@ def get_configs(arch='resnet50'):
 
 class ResNetAutoEncoder(nn.Module):
 
-    def __init__(self, configs, bottleneck):
+    def __init__(self, configs, bottleneck, gate_fn:str="Sigmoid"):
 
         super(ResNetAutoEncoder, self).__init__()
 
         self.encoder = ResNetEncoder(configs=configs,       bottleneck=bottleneck)
-        self.decoder = ResNetDecoder(configs=configs[::-1], bottleneck=bottleneck)
+        self.decoder = ResNetDecoder(configs=configs[::-1], bottleneck=bottleneck, gate_fn=gate_fn)
     
     def forward(self, x):
 
@@ -118,7 +118,7 @@ class ResNetEncoder(nn.Module):
 
 class ResNetDecoder(nn.Module):
 
-    def __init__(self, configs, bottleneck=False):
+    def __init__(self, configs, bottleneck=False, gate_fn:str="Sigmoid"):
         super(ResNetDecoder, self).__init__()
 
         if len(configs) != 4:
@@ -145,7 +145,7 @@ class ResNetDecoder(nn.Module):
             nn.ConvTranspose2d(in_channels=64, out_channels=3, kernel_size=7, stride=2, padding=3, output_padding=1, bias=False),
         )
 
-        self.gate = nn.Sigmoid()
+        self.gate = getattr(nn, gate_fn)()
 
     def forward(self, x):
 

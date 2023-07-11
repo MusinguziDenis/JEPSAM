@@ -45,7 +45,7 @@ DATASET:
   }  
 TRAIN:
   BATCH_SIZE        : 4    # Batch size to use when training the dataset
-  MAX_EPOCH         : 20 #500   # The maximum number epochs to train the model for
+  MAX_EPOCH         : 1 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4
@@ -61,7 +61,7 @@ MODEL:
   }
   LEARNING_RATE     : 1e-2                  # The learning rate that will be used by optimizer(s)
   REDUCTION         : mean                      # Computes the mean of the loss over a batch of data as a loss (can also be sum)
-  CHECKPOINT_DIR    : checkpoints/         # The directory where checkpoints are to be saved
+  CHECKPOINT_DIR    : "../checkpoints/"         # The directory where checkpoints are to be saved
   OPTIMIZER         : "Adam" 
 
 
