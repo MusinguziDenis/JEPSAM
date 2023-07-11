@@ -251,7 +251,7 @@ def run_AEJEPS(args, cfg):
         )
 
     # ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/AEJEPS_{time.time()}.pth"
-    ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/jepsam_best.bin"
+    ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}jepsam_best.bin"
 
     # training loop
     print("Started Autoencoder JEPS training")

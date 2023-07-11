@@ -1,12 +1,21 @@
-
+#./
+.ipynb_checkpoints/
+checkpoints
+# AEJEPS
 dataset/
+AEJEPS/checkpoints/
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
 AEJEPS/.ipynb_checkpoints/
 AEJEPS/notebooks/.ipynb_checkpoints/
+# src
 AEJEPS/src/.ipynb_checkpoints/ 
-AEJEPS/checkpoints/
 AEJEPS/src/checkpoints/
+AEJEPS/src/__pycache__/
+# src/utils
+AEJEPS/src/utils/__pycache__/
+AEJEPS/src/utils/.ipynb_checkpoints/ 
+
 ## Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
