@@ -232,7 +232,7 @@ def run_AEJEPS(args, cfg):
     )
 
     model = JEPSAM(cfg).to(cfg.TRAIN.GPU_DEVICE)
-    loss_type = "aejeps_loss"
+    loss_type = "cross_entropy"
 
     criterion = get_loss_func(loss_type)(reduction="none")
 
