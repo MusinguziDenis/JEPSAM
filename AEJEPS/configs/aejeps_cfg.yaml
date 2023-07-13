@@ -31,6 +31,7 @@ DATASET:
   IMAGE_SIZE            : 224  # Image size
   SOS                   : 48    # [SOS] token index in vocabulary
   EOS                   : 46    # [EOS] token index in vocabulary
+  PAD                   : 47
   TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
   ACTION_DESC_MAX_LEN   : 64
   CMD_MAX_LEN           : 128
@@ -44,7 +45,7 @@ DATASET:
         "Resize"                  : {"height": 224,"width": 224},
   }  
 TRAIN:
-  BATCH_SIZE        : 4    # Batch size to use when training the dataset
+  BATCH_SIZE        : 8    # Batch size to use when training the dataset
   MAX_EPOCH         : 1 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
@@ -64,6 +65,7 @@ MODEL:
   CHECKPOINT_DIR    : "../checkpoints/"         # The directory where checkpoints are to be saved
   OPTIMIZER         : "Adam" 
   LOSS_TYPE         : "cross_entropy"
+  LOSS_W            : [1., 1., 1.]
 
 RUN:
   MODE: train_aejeps

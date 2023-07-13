@@ -86,6 +86,7 @@ class AEJEPSCrossEntropyLoss(nn.Module):
         goal_img,
         text_target,
         cmd_target,
+        ignore_idx:int=0,
         debug: bool = False
     ):
         """
@@ -105,32 +106,33 @@ class AEJEPSCrossEntropyLoss(nn.Module):
 
         L_img = (0.5) * (L_img_per + L_img_goal)
         if debug:
-            print(f"Img loss: {L_img}")
+            print(f"\nImg loss: {L_img}")
 
         # change to WER or PERPLEXITY
-        print(text_out.dtype, text_target.dtype)
-        print("text_out[0].shape: ", text_out[0].shape)
-        print("text_target[0].shape: ", text_target[0].shape)
-        print("text_out[0]: ", text_out[0])
-        print("text_target[0]: ", text_target[0])
+        # print(text_out.dtype, text_target.dtype)
+        # print("text_out[0].shape: ", text_out[0].shape)
+        # print("text_target[0].shape: ", text_target[0].shape)
+
         L_text = nn.functional.cross_entropy(
             input=text_out,
-            target=text_target
+            target=text_target,
+            ignore_index=ignore_idx
         )
         if debug:
-            print(f"Text loss: {L_text}")
+            print(f"\nText loss: {L_text}")
 
         # change to WER or PERPLEXITY
-        print(cmd_out.dtype, cmd_target.dtype)
-        print("cmd_out[0]: ", cmd_out[0])
-        print("cmd_target[0]: ", cmd_target[0])
+        # print(cmd_out.dtype, cmd_target.dtype)
+        # print("cmd_out[0]: ", cmd_out[0])
+        # print("cmd_target[0]: ", cmd_target[0])
         L_cmd = nn.functional.cross_entropy(
             cmd_out,
-            cmd_target
+            cmd_target,
+            ignore_index=ignore_idx
         )
 
         if debug:
-            print(f"Cmd loss: {L_cmd}")
+            print(f"\nCmd loss: {L_cmd}")
 
         return L_img, L_text, L_cmd
 

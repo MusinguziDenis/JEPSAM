@@ -38,41 +38,42 @@ def train(
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
         # forward
-        rec_per_img, goal_img_out, text_out, cmd_out = model(data)
+        rec_per_img, goal_img_out, ad_out, cmd_out = model(data)
 
         # loss computation
         try:
-            # print("\nAD:: ", ad.shape, text_out.shape)
-            # print("\nAD:: ", ad.shape[-1], text_out.shape[-2])
-            ad_len = min(ad.shape[-1], text_out.shape[-2])
-            ad = ad[:, :, :ad_len]
-            # text_out = text_out[:, :ad_len]
-            # text_out = torch.argmax(text_out, -1)[:, :ad_len]
+            # AD
+            ad_len  = min(ad.shape[-1], ad_out.shape[-2])
+            ad_     = ad[:, :, 1:].reshape(-1)  # skipping [EOS] token
+            # reshape model outputs for CELoss too
+            ad_out  = ad_out[:, :ad_len, :]
+            ad_out_ = ad_out[:, 1:].reshape(-1, ad_out.shape[2])
+            # print(f"ad_: {ad_.shape} - ad_out_: {ad_out_.shape}")
 
-            # print("\nCMD:: ", cmd.shape, cmd_out.shape)
-            # print("\nCMD:: ", cmd.shape[-1], cmd_out.shape[-2])
+            # CMD
             cmd_len = min(cmd.shape[-1], cmd_out.shape[-2])
-            # cmd_out = cmd_out[:, :cmd_len]
-            # cmd_out = torch.argmax(cmd_out, -1)[:, :cmd_len]
-
-            cmd = cmd[:, :, :cmd_len]
+            cmd_     = cmd[:, :, 1:].reshape(-1)  # skipping [EOS] token
+            # reshape model outputs for CELoss too
+            cmd_out  = cmd_out[:, :cmd_len, :]
+            cmd_out_ = cmd_out[:, 1:].reshape(-1, cmd_out.shape[2])            
             # print()
-            # print(text_out.shape, ad.shape)
+            # print(ad_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
 
-            loss_img, loss_text, loss_cmd = criterion(
+            loss_img, loss_ad, loss_cmd = criterion(
                 rec_per_img,
                 goal_img_out,
-                text_out,
-                cmd_out,
+                ad_out_,
+                cmd_out_,
                 in_state,
                 goal_state,
-                ad.squeeze(1),
-                cmd.squeeze(1),
-                debug=True
+                ad_,
+                cmd_,
+                ignore_idx=cfg.DATASET.PAD,
+                debug=False
             )
         except RuntimeError as e:
-            print("ad_out: ", text_out.shape)
+            print("ad_out: ", ad_out.shape)
             print("ad: ", ad.shape)
             print("Min len: ", ad_len)
 
@@ -84,30 +85,32 @@ def train(
 
             sys.exit()
 
-        mask_text = torch.zeros(text_out.size()).to(cfg.TRAIN.GPU_DEVICE)
-        for i in range(batch_size):
-            mask_text[i, :ad_lens[i]] = 1
+        # print(loss_img, loss_ad, loss_cmd)
 
-        # mask_text = mask_text.view(-1).to(device)
+        # mask_text = torch.zeros(ad_out.size()).to(cfg.TRAIN.GPU_DEVICE)
+        # for i in range(batch_size):
+        #     mask_text[i, :ad_lens[i]] = 1
 
-        mask_cmd = torch.zeros(cmd_out.size()).to(cfg.TRAIN.GPU_DEVICE)
+        # # mask_text = mask_text.view(-1).to(device)
 
-        for i in range(batch_size):
-            mask_cmd[i, :ad_lens[i]] = 1
+        # mask_cmd = torch.zeros(cmd_out.size()).to(cfg.TRAIN.GPU_DEVICE)
 
-        # mask_cmd = mask_cmd.view(-1).to(cfg.TRAIN.GPU_DEVICE)
+        # for i in range(batch_size):
+        #     mask_cmd[i, :ad_lens[i]] = 1
 
-        masked_loss_text = torch.sum(
-            loss_text * mask_text) / torch.sum(mask_text, 1)
+        # # mask_cmd = mask_cmd.view(-1).to(cfg.TRAIN.GPU_DEVICE)
 
-        masked_loss_cmd = torch.sum(
-            loss_cmd * mask_cmd) / torch.sum(mask_cmd, 1)
+        # masked_loss_ad = torch.sum(
+        #     loss_ad * mask_text) / torch.sum(mask_text, 1)
 
-        loss_i = torch.mean(loss_img)
-        loss_ad = torch.mean(masked_loss_text)
-        loss_cmd = torch.mean(masked_loss_cmd)
+        # masked_loss_cmd = torch.sum(
+        #     loss_cmd * mask_cmd) / torch.sum(mask_cmd, 1)
 
-        loss = loss_i + loss_ad + loss_cmd
+        # loss_i = torch.mean(loss_img)
+        # loss_ad = torch.mean(masked_loss_ad)
+        # loss_cmd = torch.mean(masked_loss_cmd)     
+
+        loss = loss_img + loss_ad + loss_cmd
 
         loss.backward()
 
@@ -117,7 +120,7 @@ def train(
         if batch_idx % 50 == 0:
             pbar.set_postfix({
                 "Step": f"{batch_idx}/{len(dataloader)}",
-                "L_img": f"{loss_i:.4f}",
+                "L_img": f"{loss_img:.4f}",
                 "L_ad": f"{loss_ad:.4f}",
                 "L_cmd": f"{loss_cmd:.4f}",
                 "TrainLoss": f"{loss:.4f}"
@@ -145,76 +148,66 @@ def validate(
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
         batch_size, _, _, _ = in_state.shape
 
+        in_state = in_state.to(cfg.TRAIN.GPU_DEVICE)
         ad = ad.to(cfg.TRAIN.GPU_DEVICE)
         cmd = cmd.to(cfg.TRAIN.GPU_DEVICE)
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
         # forward
-        rec_per_img, goal_img_out, text_out, cmd_out = model(
+        rec_per_img, goal_img_out, ad_out, cmd_out = model(
             data,
             mode="test"
         )
 
         # loss computation
         try:
-            # print("\nAD:: ", ad.shape, text_out.shape)
-            # print("\nAD:: ", ad.shape[-1], text_out.shape[-2])
-            ad_len = min(ad.shape[-1], text_out.shape[-2])
-            ad = ad[:, :, :ad_len]
-            text_out = torch.argmax(text_out, -1)[:, :ad_len]
+            # AD
+            ad_len  = min(ad.shape[-1], ad_out.shape[-2])
+            # print(f"\nad: {ad.shape} - ad_out: {ad_out.shape} - min: {ad_len}")
+            ad_     = ad[:, :, 1:].reshape(-1)  # skipping [EOS] token
+            # reshape model outputs for CELoss too
+            ad_out  = ad_out[:, :ad_len, :]
+            ad_out_ = ad_out[:, 1:].reshape(-1, ad_out.shape[2])
+            # print(f"\nad_: {ad_.shape} - ad_out_: {ad_out_.shape}")
 
-            # print("\nCMD:: ", cmd.shape, cmd_out.shape)
-            # print("\nCMD:: ", cmd.shape[-1], cmd_out.shape[-2])
+            # CMD
             cmd_len = min(cmd.shape[-1], cmd_out.shape[-2])
-            cmd_out = torch.argmax(cmd_out, -1)[:, :cmd_len]
-            cmd = cmd[:, :, :cmd_len]
+            cmd_     = cmd[:, :, 1:].reshape(-1)  # skipping [EOS] token
+            # reshape model outputs for CELoss too
+            cmd_out  = cmd_out[:, :cmd_len, :]
+            cmd_out_ = cmd_out[:, 1:].reshape(-1, cmd_out.shape[2])            
             # print()
-            # print(text_out.shape, ad.shape)
+            # print(ad_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
 
-            loss_img, loss_text, loss_cmd = criterion(
+            loss_img, loss_ad, loss_cmd = criterion(
+                rec_per_img,
                 goal_img_out,
-                text_out,
-                cmd_out,
+                ad_out_,
+                cmd_out_,
+                in_state,
                 goal_state,
-                ad.squeeze(1),
-                cmd.squeeze(1)
+                ad_,
+                cmd_,
+                ignore_idx=cfg.DATASET.PAD,
+                debug=False
             )
 
-            mask_text = torch.zeros(text_out.size()).to(cfg.TRAIN.GPU_DEVICE)
-            for i in range(batch_size):
-                mask_text[i, :ad_lens[i]] = 1
-
-            # mask_text = mask_text.view(-1).to(device)
-
-            mask_cmd = torch.zeros(cmd_out.size()).to(cfg.TRAIN.GPU_DEVICE)
-
-            for i in range(batch_size):
-                mask_cmd[i, :ad_lens[i]] = 1
-
-            # mask_cmd = mask_cmd.view(-1).to(cfg.TRAIN.GPU_DEVICE)
-
-            masked_loss_text = torch.sum(
-                loss_text * mask_text) / torch.sum(mask_text, 1)
-
-            masked_loss_cmd = torch.sum(
-                loss_cmd * mask_cmd) / torch.sum(mask_cmd, 1)
-
-            loss = torch.mean(loss_img) + torch.mean(masked_loss_text) + \
-                torch.mean(masked_loss_cmd)  # / batch_size
+            loss = loss_img + loss_ad + loss_cmd
 
             pbar.close()
             # Output training stats
             print("Validation results:")
-            print('[Epoch %d/%d][Step %d/%d]\tAvg. Loss: %.5f\t'
-                  % (epoch+1, cfg.TRAIN.MAX_EPOCH, batch_idx, len(dataloader), loss))
+            print('[Epoch %d/%d]\tAvg. Loss: %.5f\t'
+                  % (epoch+1, cfg.TRAIN.MAX_EPOCH, loss))
             print()
 
             return loss
 
-        except RuntimeError:
+        except RuntimeError as ex:
             print()
-            print("ad_out: ", text_out.shape)
+            logging.error(ex)
+            print("ad_out: ", ad_out.shape)
             print("ad: ", ad.shape)
             print("Min len: ", ad_len)
 
