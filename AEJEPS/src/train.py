@@ -276,6 +276,7 @@ def run_AEJEPS(args, cfg):
             epoch=epoch
         )
 
+
         if val_loss < best_loss:
             print(
                 f"Loss improvement: from {best_loss:.5f}-->{val_loss:.5f} \nSaving checkpoint to ", ckpt_path)
@@ -283,6 +284,9 @@ def run_AEJEPS(args, cfg):
                 "mode_state_dict": model.state_dict(),
                 "best_score": val_loss
             }, ckpt_path)
+
+            # step tf rate
+            model.decoder._step_tf_rate()
 
             best_loss = val_loss
 

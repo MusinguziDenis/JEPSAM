@@ -1,7 +1,5 @@
 from addict import Dict
 
-import copy
-
 from einops import rearrange
 
 import numpy as np
@@ -29,6 +27,10 @@ from utils.ae_resnet import get_configs, ResNetEncoder, ResNetDecoder
 
 from dataloader import get_dataloaders, SimpleTokenizer, JEPSAMDataset
 import vocabulary as vocab
+
+import logging
+logging.basicConfig(level="INFO")
+
 
 
 class JEPSAMEncoder(nn.Module):
@@ -170,10 +172,12 @@ class JEPSAMDecoder(nn.Module):
         super().__init__()
 
         # class attributes
-        self.cfg = cfg
-        self.cnn_backbone_name = cnn_backbone_name
-        self.num_directions = 2 if cfg.AEJEPS.IS_BIDIRECTIONAL else 1
-        decoder_hidden_dim = self.num_directions * cfg.AEJEPS.HIDDEN_DIM
+        self.cfg                = cfg
+        self.cnn_backbone_name  = cnn_backbone_name
+        self.num_directions     = 2 if cfg.AEJEPS.IS_BIDIRECTIONAL else 1
+        decoder_hidden_dim      = self.num_directions * cfg.AEJEPS.HIDDEN_DIM
+        self.tf_ratio           = self.cfg.TRAIN.TF_RATE
+        self.tf_rate_step       = 0
 
         # Layers
         # tokenizer
@@ -250,12 +254,14 @@ class JEPSAMDecoder(nn.Module):
         len_enc_output,
         hidden,
         carousel,
+        y_ad=None,
+        y_cmd=None,
         mode: str = "train"
     ):
 
         batch_size, max_len, num_ftrs = enc_output.shape
         if mode !="train":
-            max_len = 11 # at test time we will specify this as the max len 
+            max_len = self.cfg.DATASET.MAX_LEN # at test time we will specify this as the max len 
 
         # hidden
         # hidden = hidden.view(self.num_directions, self.num_layers, batch_size, -1)
@@ -271,10 +277,18 @@ class JEPSAMDecoder(nn.Module):
         # run decoding steps
         # generate action desc from latent representation
         lang_out = self._decode_action_description(
-            hidden=lang_h_t, batch_size=batch_size, max_len=max_len)
+            hidden=lang_h_t, 
+            batch_size=batch_size, 
+            max_len=max_len,
+            y=y_ad
+        )
         # generate motor cmd from latent representation
         motor_out = self._decode_motor_command(
-            hidden=cmd_h_t, batch_size=batch_size, max_len=max_len)
+            hidden=cmd_h_t, 
+            batch_size=batch_size, 
+            max_len=max_len,
+            y=y_cmd
+        )
         # reconstruct from latent representation
         per_image_rec = self._reconstruct_image(hidden)
         # generate from latent representation
@@ -310,19 +324,30 @@ class JEPSAMDecoder(nn.Module):
         self,
         hidden,
         batch_size: int,
-        max_len: int
+        max_len: int,
+        y=None
     ):
         """
         """
         # print(next(self.lang_decoder.parameters()).is_cuda)
+        if y is not None:
+            max_len = y.shape[-1]
 
         lang_out = []
         # Initialize the predictions with [SOS]
         prediction_txt_t = torch.ones(batch_size, 1).to(
             self.device).long() * self.cfg.DATASET.SOS
+        
         # print(prediction_txt_t.device)
         for t in range(max_len):
-            char = self.embedding(prediction_txt_t).squeeze(1)
+            if t > 0 and y is not None:
+                p = np.random.uniform(0, 1)
+                if(p <= self.tf_ratio):
+                    # print(f"t-1={t-1} - y: {y.shape}")
+                    char = self.embedding(y[:, :, t-1]).squeeze(1)
+            else:
+                char = self.embedding(prediction_txt_t).squeeze(1)
+            
             # hidden state at time step t for each RNN
             hidden, lang_c_t = self.lang_decoder(char, hidden)
             # project hidden state to vocab
@@ -341,6 +366,7 @@ class JEPSAMDecoder(nn.Module):
         hidden,
         batch_size: int,
         max_len: int,
+        y=None,
         method: str = "embed"
     ):
         """
@@ -350,6 +376,8 @@ class JEPSAMDecoder(nn.Module):
             method: str
                 The method to use for token 
         """
+        if y is not None:
+            max_len = y.shape[-1]        
 
         motor_out = []
         # Initialize the predictions with [SOS]
@@ -364,6 +392,13 @@ class JEPSAMDecoder(nn.Module):
                 ).squeeze(1).float()
             else:
                 command = self.embedding(prediction_cmd_t).squeeze(1)
+
+            if y is not None:
+                p = np.random.uniform(0, 1)
+                if(p <= self.tf_ratio):
+                    command = self.embedding(y[:, :, t-1]).squeeze(1)
+
+            # print("command_embed: ", command.shape)
 
             # hidden state at time step t for each RNN
             hidden, cmd_c_t = self.motor_decoder(command, hidden)
@@ -406,6 +441,21 @@ class JEPSAMDecoder(nn.Module):
         """
         return self.tokenizer.batch_decode(predictions.argmax(dim=-1))
 
+    def _reset_rate_count(self):
+        self.tf_rate_step = 0
+
+    def _step_tf_rate(self):
+        if self.tf_rate_step < self.cfg.TRAIN.MAX_TF_RATE_STEPS:
+            self.tf_rate_step += 1
+            logging.info(f"TF rate decay counts: {self.tf_rate_step}")
+        else:
+            self._decay_tf_rate(r=self.cfg.TRAIN.TF_RATE_DECAY)
+            self._reset_rate_count()
+
+            logging.info(f"TF rate set to: {self.tf_ratio}")
+
+    def _decay_tf_rate(self, r):
+        self.tf_rate_step -= r
 
 class JEPSAM(nn.Module):
     """
@@ -441,13 +491,26 @@ class JEPSAM(nn.Module):
         o, lo, h, c = self.encoder(inp, mode=mode)
 
         # decode
-        reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
-            enc_output=o,
-            len_enc_output=lo,
-            hidden=h,
-            carousel=c, 
-            mode=mode
-        )
+        if mode == "train":
+            _, _, ad, cmd, _, _ = inp
+
+            reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
+                enc_output=o,
+                len_enc_output=lo,
+                hidden=h,
+                carousel=c, 
+                y_ad=ad.to(self.device),
+                y_cmd=cmd.to(self.device),
+                mode=mode
+            )
+        else:
+            reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
+                enc_output=o,
+                len_enc_output=lo,
+                hidden=h,
+                carousel=c,
+                mode=mode
+            )
 
         return reconstructed_image, goal_image, decoded_action_desc, decoded_cmd
 
@@ -501,6 +564,15 @@ if __name__ == "__main__":
     # JEPSAM
     jepsam = JEPSAM(cfg)
     print(jepsam)
-    per_image_rec, goal_image, lang_out, motor_out = jepsam(data)
+    print('Train mode')
+    per_image_rec, goal_image, lang_out, motor_out = jepsam(inp=data)
+    print("output shapes: ", per_image_rec.shape,
+          goal_image.shape, lang_out.shape, motor_out.shape)
+
+    print('Test mode')
+    per_image_rec, goal_image, lang_out, motor_out = jepsam(
+        inp=data, 
+        mode="test"
+    )
     print("output shapes: ", per_image_rec.shape,
           goal_image.shape, lang_out.shape, motor_out.shape)

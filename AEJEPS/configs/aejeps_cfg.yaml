@@ -32,6 +32,7 @@ DATASET:
   SOS                   : 48    # [SOS] token index in vocabulary
   EOS                   : 46    # [EOS] token index in vocabulary
   PAD                   : 47
+  MAX_LEN               : 15
   TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
   ACTION_DESC_MAX_LEN   : 64
   CMD_MAX_LEN           : 128
@@ -45,11 +46,14 @@ DATASET:
         "Resize"                  : {"height": 224,"width": 224},
   }  
 TRAIN:
-  BATCH_SIZE        : 8    # Batch size to use when training the dataset
-  MAX_EPOCH         : 1 #500   # The maximum number epochs to train the model for
+  BATCH_SIZE        : 4    # Batch size to use when training the dataset
+  MAX_EPOCH         : 25 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4
+  TF_RATE           : .99
+  MAX_TF_RATE_STEPS : 4
+  TF_RATE_DECAY     : .05
 
 MODEL:
   CNN_BACKBONES      : {
