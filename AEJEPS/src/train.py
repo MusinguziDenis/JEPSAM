@@ -28,6 +28,8 @@ def train(
     pbar = tqdm(
         dataloader, desc=f"Training [Epoch {epoch+1}/{cfg.TRAIN.MAX_EPOCH}]")
 
+    model.train()
+
     for batch_idx, data in enumerate(pbar, 0):
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
         batch_size, _, _, _ = in_state.shape
@@ -37,7 +39,7 @@ def train(
         cmd = cmd.to(cfg.TRAIN.GPU_DEVICE)
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
-        # forward
+        # forward pass
         rec_per_img, goal_img_out, ad_out, cmd_out = model(data)
 
         # loss computation
@@ -84,36 +86,13 @@ def train(
             logging.error(e)
 
             sys.exit()
+   
 
-        # print(loss_img, loss_ad, loss_cmd)
+        loss        = loss_img + loss_ad + loss_cmd
+        curr_loss   += loss.item()
 
-        # mask_text = torch.zeros(ad_out.size()).to(cfg.TRAIN.GPU_DEVICE)
-        # for i in range(batch_size):
-        #     mask_text[i, :ad_lens[i]] = 1
-
-        # # mask_text = mask_text.view(-1).to(device)
-
-        # mask_cmd = torch.zeros(cmd_out.size()).to(cfg.TRAIN.GPU_DEVICE)
-
-        # for i in range(batch_size):
-        #     mask_cmd[i, :ad_lens[i]] = 1
-
-        # # mask_cmd = mask_cmd.view(-1).to(cfg.TRAIN.GPU_DEVICE)
-
-        # masked_loss_ad = torch.sum(
-        #     loss_ad * mask_text) / torch.sum(mask_text, 1)
-
-        # masked_loss_cmd = torch.sum(
-        #     loss_cmd * mask_cmd) / torch.sum(mask_cmd, 1)
-
-        # loss_i = torch.mean(loss_img)
-        # loss_ad = torch.mean(masked_loss_ad)
-        # loss_cmd = torch.mean(masked_loss_cmd)     
-
-        loss = loss_img + loss_ad + loss_cmd
-
+        # backward pass
         loss.backward()
-
         optimizer.step()
 
         # Output training stats
@@ -129,7 +108,9 @@ def train(
 
     pbar.close()
 
-    return loss
+    train_loss = curr_loss / len(dataloader)
+
+    return train_loss
 
 
 def validate(
@@ -139,19 +120,24 @@ def validate(
     criterion,
     epoch
 ):
+    model.eval()
+
     pbar = tqdm(
         dataloader,
         desc=f"Validating [Epoch {epoch+1}/{cfg.TRAIN.MAX_EPOCH}]",
-        ncols=100)
+        ncols=100
+        )
+
+    val_loss = 0.0
 
     for batch_idx, data in enumerate(pbar, 0):
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
         batch_size, _, _, _ = in_state.shape
 
-        in_state = in_state.to(cfg.TRAIN.GPU_DEVICE)
-        ad = ad.to(cfg.TRAIN.GPU_DEVICE)
-        cmd = cmd.to(cfg.TRAIN.GPU_DEVICE)
-        goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
+        # in_state = in_state.to(cfg.TRAIN.GPU_DEVICE)
+        # ad = ad.to(cfg.TRAIN.GPU_DEVICE)
+        # cmd = cmd.to(cfg.TRAIN.GPU_DEVICE)
+        # goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
         # forward
         rec_per_img, goal_img_out, ad_out, cmd_out = model(
@@ -181,10 +167,10 @@ def validate(
             # print(cmd_out.shape, cmd.shape)
 
             loss_img, loss_ad, loss_cmd = criterion(
-                rec_per_img,
-                goal_img_out,
-                ad_out_,
-                cmd_out_,
+                rec_per_img.cpu().detach(),
+                goal_img_out.cpu().detach(),
+                ad_out_.cpu().detach(),
+                cmd_out_.cpu().detach(),
                 in_state,
                 goal_state,
                 ad_,
@@ -195,14 +181,7 @@ def validate(
 
             loss = loss_img + loss_ad + loss_cmd
 
-            pbar.close()
-            # Output training stats
-            print("Validation results:")
-            print('[Epoch %d/%d]\tAvg. Loss: %.5f\t'
-                  % (epoch+1, cfg.TRAIN.MAX_EPOCH, loss))
-            print()
-
-            return loss
+            val_loss += loss
 
         except RuntimeError as ex:
             print()
@@ -217,6 +196,16 @@ def validate(
             print("Min len: ", cmd_len)
 
             sys.exit()
+        
+        
+    pbar.close()
+    val_loss = val_loss / len(dataloader)
+    # Output training stats
+    print("Validation results:")
+    print('[Epoch %d/%d]\tAvg. Loss: %.5f\t'
+            % (epoch+1, cfg.TRAIN.MAX_EPOCH, val_loss))        
+                
+    return val_loss
 
 
 def run_AEJEPS(args, cfg):
@@ -236,7 +225,7 @@ def run_AEJEPS(args, cfg):
     model = JEPSAM(cfg).to(cfg.TRAIN.GPU_DEVICE)
     loss_type = cfg.MODEL.LOSS_TYPE
 
-    criterion = get_loss_func(loss_type)()
+    criterion = get_loss_func(loss_name=loss_type)()
 
     if "adam" in cfg.MODEL.OPTIMIZER.lower():
         optimizer = getattr(optim, cfg.MODEL.OPTIMIZER)(
@@ -256,7 +245,7 @@ def run_AEJEPS(args, cfg):
     ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}jepsam_best.bin"
 
     # training loop
-    print("Started Autoencoder JEPS training")
+    logging.info("Training strating now...")
     for epoch in range(cfg.TRAIN.MAX_EPOCH):
 
         train_loss = train(
@@ -280,6 +269,7 @@ def run_AEJEPS(args, cfg):
         if val_loss < best_loss:
             print(
                 f"Loss improvement: from {best_loss:.5f}-->{val_loss:.5f} \nSaving checkpoint to ", ckpt_path)
+            
             torch.save({
                 "mode_state_dict": model.state_dict(),
                 "best_score": val_loss
@@ -290,6 +280,7 @@ def run_AEJEPS(args, cfg):
 
             best_loss = val_loss
 
+    logging.info("Completed training")
 
 if __name__ == "__main__":
     args = parse_args()

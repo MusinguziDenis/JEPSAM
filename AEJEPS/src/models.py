@@ -447,7 +447,7 @@ class JEPSAMDecoder(nn.Module):
     def _step_tf_rate(self):
         if self.tf_rate_step < self.cfg.TRAIN.MAX_TF_RATE_STEPS:
             self.tf_rate_step += 1
-            logging.info(f"TF rate decay counts: {self.tf_rate_step}")
+            logging.info(f"TF rate decay counts: {self.tf_rate_step} - [ TF rate: {self.tf_ratio} ]")
         else:
             self._decay_tf_rate(r=self.cfg.TRAIN.TF_RATE_DECAY)
             self._reset_rate_count()
