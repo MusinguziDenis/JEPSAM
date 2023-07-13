@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import vocabulary as vocab
 
 class AEJEPSLoss(nn.Module):
     """
@@ -52,10 +52,11 @@ class AEJEPSLoss(nn.Module):
             goal_img_out, goal_img, reduction=self.reduction)
         
         # change to WER or PERPLEXITY
-        L_text = nn.functional.mse_loss(
+        L_text = nn.functional.cross_entropy(
             text_out.float(), 
             text_target.float(), 
-            reduction=self.reduction
+            reduction=self.reduction,
+            ignore_index = 47
         )
         
         # change to WER or PERPLEXITY
