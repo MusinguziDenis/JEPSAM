@@ -82,7 +82,7 @@ MOTOR_COMMANDS = [
 SPECIAL_TOKENS = ["[SOS]", "[PAD]", "[UNK]", "[EOS]"] 
 # ALL_TOKENS = set(SPECIAL_TOKENS+ ACTION_DESCRIPTION + MOTOR_COMMANDS)
 
-with open("simpleTokenizer.txt", "r") as v:
+with open("src/simpleTokenizer.txt", "r") as v:
     ALL_TOKENS = [t.strip() for t in v.readlines()]
 
 TOKENS_MAPPING = {t:i for i, t in enumerate(ALL_TOKENS)}

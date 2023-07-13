@@ -26,12 +26,12 @@ AEJEPS:
 
 
 DATASET:
-  PATH                  : "../../../dataset/"         
+  PATH                  : "../dataset/"         
   VOCABULARY_SIZE       : 65 # number of unique  words in the dataset
   IMAGE_SIZE            : 224  # Image size
   SOS                   : 48    # [SOS] token index in vocabulary
   EOS                   : 46    # [EOS] token index in vocabulary
-  TOKENIZER_PATH        : "../../../dataset/jeps_tokenizer.json"
+  TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
   ACTION_DESC_MAX_LEN   : 64
   CMD_MAX_LEN           : 128
   VALIDATION_PCT        : .3
@@ -61,9 +61,9 @@ MODEL:
   }
   LEARNING_RATE     : 1e-2                  # The learning rate that will be used by optimizer(s)
   REDUCTION         : mean                      # Computes the mean of the loss over a batch of data as a loss (can also be sum)
-  CHECKPOINT_DIR    : checkpoints/         # The directory where checkpoints are to be saved
+  CHECKPOINT_DIR    : "../checkpoints/"         # The directory where checkpoints are to be saved
   OPTIMIZER         : "Adam" 
-
+  LOSS_TYPE         : "cross_entropy"
 
 RUN:
   MODE: train_aejeps

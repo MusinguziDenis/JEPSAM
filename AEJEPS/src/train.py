@@ -1,22 +1,17 @@
+from tqdm import tqdm
+import sys
+from utils.parser import parse_args, load_config
+import torch.optim as optim
+import torch
+from losses import get_loss_func
+import os.path as osp
+import pandas as pd
+import numpy as np
+from models import JEPSAM
 from dataloader import get_dataloaders
 
-from losses import get_loss_func
-from models import JEPSAM
-import numpy as np
-
-import pandas as pd
-
-import os.path as osp
-import time
-
-import torch
-import torch.optim as optim
-
-from utils.parser import parse_args, load_config
-
-import sys
-
-from tqdm import tqdm
+import logging
+logging.basicConfig(level="INFO")
 
 
 def train(
@@ -37,6 +32,7 @@ def train(
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
         batch_size, _, _, _ = in_state.shape
 
+        in_state = in_state.to(cfg.TRAIN.GPU_DEVICE)
         ad = ad.to(cfg.TRAIN.GPU_DEVICE)
         cmd = cmd.to(cfg.TRAIN.GPU_DEVICE)
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
@@ -50,29 +46,43 @@ def train(
             # print("\nAD:: ", ad.shape[-1], text_out.shape[-2])
             ad_len = min(ad.shape[-1], text_out.shape[-2])
             ad = ad[:, :, :ad_len]
-            text_out = torch.argmax(text_out, -1)[:, :ad_len]
+            # text_out = text_out[:, :ad_len]
+            # text_out = torch.argmax(text_out, -1)[:, :ad_len]
 
             # print("\nCMD:: ", cmd.shape, cmd_out.shape)
             # print("\nCMD:: ", cmd.shape[-1], cmd_out.shape[-2])
             cmd_len = min(cmd.shape[-1], cmd_out.shape[-2])
-            cmd_out = torch.argmax(cmd_out, -1)[:, :cmd_len]
+            # cmd_out = cmd_out[:, :cmd_len]
+            # cmd_out = torch.argmax(cmd_out, -1)[:, :cmd_len]
+
             cmd = cmd[:, :, :cmd_len]
             # print()
             # print(text_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
 
             loss_img, loss_text, loss_cmd = criterion(
+                rec_per_img,
                 goal_img_out,
                 text_out,
                 cmd_out,
+                in_state,
                 goal_state,
                 ad.squeeze(1),
-                cmd.squeeze(1)
+                cmd.squeeze(1),
+                debug=True
             )
-        except RuntimeError:
+        except RuntimeError as e:
+            print("ad_out: ", text_out.shape)
+            print("ad: ", ad.shape)
+            print("Min len: ", ad_len)
+
             print("cmd_out: ", cmd_out.shape)
             print("cmd: ", cmd.shape)
             print("Min len: ", cmd_len)
+
+            logging.error(e)
+
+            sys.exit()
 
         mask_text = torch.zeros(text_out.size()).to(cfg.TRAIN.GPU_DEVICE)
         for i in range(batch_size):
@@ -192,16 +202,15 @@ def validate(
 
             loss = torch.mean(loss_img) + torch.mean(masked_loss_text) + \
                 torch.mean(masked_loss_cmd)  # / batch_size
-            
 
             pbar.close()
             # Output training stats
             print("Validation results:")
             print('[Epoch %d/%d][Step %d/%d]\tAvg. Loss: %.5f\t'
-                % (epoch+1, cfg.TRAIN.MAX_EPOCH, batch_idx, len(dataloader), loss))
+                  % (epoch+1, cfg.TRAIN.MAX_EPOCH, batch_idx, len(dataloader), loss))
             print()
 
-            return loss            
+            return loss
 
         except RuntimeError:
             print()
@@ -232,9 +241,9 @@ def run_AEJEPS(args, cfg):
     )
 
     model = JEPSAM(cfg).to(cfg.TRAIN.GPU_DEVICE)
-    loss_type = "cross_entropy"
+    loss_type = cfg.MODEL.LOSS_TYPE
 
-    criterion = get_loss_func(loss_type)(reduction="none")
+    criterion = get_loss_func(loss_type)()
 
     if "adam" in cfg.MODEL.OPTIMIZER.lower():
         optimizer = getattr(optim, cfg.MODEL.OPTIMIZER)(
@@ -257,7 +266,7 @@ def run_AEJEPS(args, cfg):
     print("Started Autoencoder JEPS training")
     for epoch in range(cfg.TRAIN.MAX_EPOCH):
 
-        train_loss  = train(
+        train_loss = train(
             cfg=cfg,
             model=model,
             dataloader=train_dl,
