@@ -10,12 +10,12 @@ AEJEPS:
   
   
   ## Decoder
-  ### Action desc
+  ### Motor cmd 
   NUM_LAYERS_MOTOR      : 2               # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
   ACTIVATION_MOTOR      : 'Tanh'          # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
   MOTOR_DROPOUT         : 0.25                # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
   
-  ### Motor cmd
+  ### Action desc
   NUM_LAYERS_LANG       : 2                # Number of layers in motor decoder, changing this requires significant changes to decoder implementation
   ACTIVATION_LANG       : 'Tanh'           # Only important if switching the LSTMs in AEJEPS to Vanilla RNN
   LANG_DROPOUT          : 0.25 
@@ -36,7 +36,7 @@ DATASET:
   TOKENIZER_PATH        : "../dataset/jeps_tokenizer.json"
   ACTION_DESC_MAX_LEN   : 64
   CMD_MAX_LEN           : 128
-  VALIDATION_PCT        : .3
+  VALIDATION_PCT        : .2
   NUM_COMMANDS          : 46   # The number of motor commands in the dataset
   TRAIN_TFMS        : {
         "Resize"                  : {"height": 224,"width": 224},
@@ -46,8 +46,8 @@ DATASET:
         "Resize"                  : {"height": 224,"width": 224},
   }  
 TRAIN:
-  BATCH_SIZE        : 2    # Batch size to use when training the dataset
-  MAX_EPOCH         : 25 #500   # The maximum number epochs to train the model for
+  BATCH_SIZE        : 4    # Batch size to use when training the dataset
+  MAX_EPOCH         : 50 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4
@@ -64,10 +64,10 @@ MODEL:
     "efficientnet_b4" : "EfficientNet_B4_Weights.IMAGENET1K_V1"
 
   }
-  LEARNING_RATE     : 1e-2                  # The learning rate that will be used by optimizer(s)
+  LEARNING_RATE     : 1e-3                  # The learning rate that will be used by optimizer(s)
   REDUCTION         : mean                      # Computes the mean of the loss over a batch of data as a loss (can also be sum)
   CHECKPOINT_DIR    : "../checkpoints/"         # The directory where checkpoints are to be saved
-  OPTIMIZER         : "Adam" 
+  OPTIMIZER         : "AdamW" 
   LOSS_TYPE         : "cross_entropy"
   LOSS_W            : [1., 1., 1.]
 

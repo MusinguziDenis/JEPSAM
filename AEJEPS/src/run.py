@@ -8,7 +8,7 @@ def main():
     cfg = load_config('configs/aejeps_cfg.yaml')
 
     if cfg.RUN.MODE == "train_aejeps":
-        run_AEJEPS(args=args, cfg=cfg)
+        trained_model, loss_history = run_AEJEPS(args=args, cfg=cfg)
     else:
         raise NotImplementedError(f"{cfg.RUN.MODE} training not implemented")
 

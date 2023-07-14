@@ -211,7 +211,11 @@ def validate(
 def run_AEJEPS(args, cfg):
 
     # init
-    best_loss = np.inf
+    best_loss       = np.inf
+    loss_history    = {
+        "train" : [],
+        "val"   : []
+    } 
 
     # dataloader = construct_loader(cfg)
     tdf = pd.read_csv(
@@ -265,6 +269,9 @@ def run_AEJEPS(args, cfg):
             epoch=epoch
         )
 
+        # store loss history
+        loss_history["train"].append(train_loss)
+        loss_history["val"].append(val_loss)
 
         if val_loss < best_loss:
             print(
@@ -274,6 +281,7 @@ def run_AEJEPS(args, cfg):
                 "mode_state_dict": model.state_dict(),
                 "best_score": val_loss
             }, ckpt_path)
+            print()
 
             # step tf rate
             model.decoder._step_tf_rate()
@@ -281,6 +289,10 @@ def run_AEJEPS(args, cfg):
             best_loss = val_loss
 
     logging.info("Completed training")
+    logging.info(f"Best Loss: {best_loss}")
+
+
+    return model, loss_history
 
 if __name__ == "__main__":
     args = parse_args()
