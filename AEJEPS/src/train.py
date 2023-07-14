@@ -9,7 +9,8 @@ import pandas as pd
 import numpy as np
 from models import JEPSAM
 from dataloader import get_dataloaders
-
+import vocabulary as vocab
+import Levenshtein
 import logging
 logging.basicConfig(level="INFO")
 
@@ -56,7 +57,7 @@ def train(
             # reshape model outputs for CELoss too
             cmd_out  = cmd_out[:, :cmd_len, :]
             cmd_out_ = cmd_out[:, 1:].reshape(-1, cmd_out.shape[2])            
-            # print()
+            # print("cmd shape :", cmd.shape)
             # print(ad_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
 
@@ -144,6 +145,9 @@ def validate(
         desc=f"Validating [Epoch {epoch+1}/{cfg.TRAIN.MAX_EPOCH}]",
         ncols=100)
 
+    running_lev_dist_cmd = 0.0
+    running_lev_dist_ad  = 0.0
+
     for batch_idx, data in enumerate(pbar, 0):
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
         batch_size, _, _, _ = in_state.shape
@@ -176,9 +180,17 @@ def validate(
             # reshape model outputs for CELoss too
             cmd_out  = cmd_out[:, :cmd_len, :]
             cmd_out_ = cmd_out[:, 1:].reshape(-1, cmd_out.shape[2])            
-            # print()
+            # print("shape of cmd :", cmd.shape)
             # print(ad_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
+
+            # Greedy Decoding
+            greedy_predictions_cmd   = cmd_out.argmax(-1)
+            greedy_predictions_ad    = ad_out.argmax(-1)
+
+            # Calculate Levenshtein Distance
+            running_lev_dist_cmd    += calc_edit_distance(greedy_predictions_cmd, cmd.squeeze(), cmd_lens, vocab, print_example = False)
+            running_lev_dist_ad     += calc_edit_distance(greedy_predictions_ad, ad.squeeze(), ad_lens+1, vocab, print_example = False)
 
             loss_img, loss_ad, loss_cmd = criterion(
                 rec_per_img,
@@ -200,6 +212,8 @@ def validate(
             print("Validation results:")
             print('[Epoch %d/%d]\tAvg. Loss: %.5f\t'
                   % (epoch+1, cfg.TRAIN.MAX_EPOCH, loss))
+            print("\tVal Dist CMD {:.04f}%".format(running_lev_dist_cmd))
+            print("\tVal Dist AD  {:.04f}%".format(running_lev_dist_ad))
             print()
 
             return loss
@@ -217,6 +231,50 @@ def validate(
             print("Min len: ", cmd_len)
 
             sys.exit()
+
+
+def indices_to_chars(indices, vocab):
+    tokens = []
+    
+    for i in indices: # This loops through all the indices
+        if int(i) == vocab.TOKENS_MAPPING["[SOS]"]: # If SOS is encountered, dont add it to the final list
+            continue
+        elif int(i) == vocab.TOKENS_MAPPING["[EOS]"] or int(i) == vocab.TOKENS_MAPPING["[PAD]"]: # If EOS is encountered, stop the decoding process
+            break
+        else:
+            tokens.append(vocab.REVERSE_TOKENS_MAPPING[int(i)])
+    return tokens
+
+
+def calc_edit_distance(predictions, y, ly, vocab, print_example= False):
+
+    dist                = 0
+    batch_size, seq_len = predictions.shape
+
+    for batch_idx in range(batch_size): 
+
+        y_sliced    = indices_to_chars(y[batch_idx,0:ly[batch_idx]], vocab)
+        pred_sliced = indices_to_chars(predictions[batch_idx], vocab)
+        # print()
+        # print("Ground Truth : ", y_sliced)
+        # print("Prediction   : ", pred_sliced)
+
+        # Strings - When you are using characters from the AudioDataset
+        y_string    = ''.join(y_sliced)
+        pred_string = ''.join(pred_sliced)
+        
+        dist        += Levenshtein.distance(pred_string, y_string)
+        # Comment the above and uncomment below for toy dataset, as the toy dataset has a list of phonemes to compare
+        # dist      += Levenshtein.distance(y_sliced, pred_sliced)
+
+    if print_example: 
+        # Print y_sliced and pred_sliced if you are using the toy dataset
+        print()
+        print("Ground Truth : ", y_sliced)
+        print("Prediction   : ", pred_sliced)
+        
+    dist/=batch_size
+    return dist
 
 
 def run_AEJEPS(args, cfg):
