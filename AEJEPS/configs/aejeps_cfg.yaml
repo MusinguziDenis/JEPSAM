@@ -45,7 +45,7 @@ DATASET:
   }  
 TRAIN:
   BATCH_SIZE        : 4    # Batch size to use when training the dataset
-  MAX_EPOCH         : 5 #500   # The maximum number epochs to train the model for
+  MAX_EPOCH         : 1 #500   # The maximum number epochs to train the model for
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4

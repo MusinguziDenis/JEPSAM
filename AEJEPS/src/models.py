@@ -87,9 +87,11 @@ class JEPSAMEncoder(nn.Module):
             self.device), ad.to(self.device), cmd.to(self.device), ad_lens.to(self.device), cmd_lens.to(self.device)
         # print(in_state.device)
         B, _, max_len = ad.shape
-
         # 1. Image feature extraction
         feats_per = self.image_feature_extractor(in_state)
+        
+        # print("Input image shape: ",feats_per.shape)
+
         # feats_per = self.img_projection(feats_per.view(B, -1))
         # print(feats_per.shape)
         feats_per = feats_per.repeat((1, max_len)).reshape((B, max_len, -1))
