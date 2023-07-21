@@ -45,6 +45,15 @@ def parse_args(config_file_path: str = "configs/aejeps_cfg.yaml"):
         type=str,
     )
 
+    parser.add_argument(
+        "--loss_type",
+        dest="loss_type",
+        help="The objective to be used to evaluate the model",
+        default=cfg.MODEL.LOSS_TYPE,
+        type=str,
+    )
+
+
     return parser.parse_args()
 
 

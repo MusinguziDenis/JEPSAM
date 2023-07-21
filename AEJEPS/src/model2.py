@@ -99,17 +99,21 @@ class JEPSAMEncoder(nn.Module):
         # Add the lengths of the motor command and the action description
         total_len = ad_lens + cmd_lens
         
+        # print("ad shape", ad.shape)
+        # print("cmd shape", cmd.shape)
+        
         # Concatenate the action descriptions and the motor commands
-        concatenated_feats = torch.cat((cmd, ad), dim=1)
+        concatenated_feats = torch.cat((cmd.squeeze(), ad.squeeze()), dim=1)
         
         # Embed the action descriptions and motor commands
-        embed_concat_feats = self.embedding(embed_concat_feats)
+        embed_concat_feats = self.embedding(concatenated_feats)
         
-        # Concatenate the images, action descriptions and the motor command embeddings
-        combined_feats = torch.cat((embed_concat_feats, feats_per.unsqueeze(1), feats_goal.unsqueeze(1)))
+        # Concatenate the images, action descriptions and the motor command embeddings     
+        combined_feats = torch.cat((embed_concat_feats, feats_per.unsqueeze(1), feats_goal.unsqueeze(1)), dim=1)
         
         # Increase the total length by 2
-        total_len +=2 
+        total_len +=2
+        total_len = total_len.to("cpu")
         
         # Pack the concatenated features
         packed_features = pack_padded_sequence(combined_feats, total_len,batch_first=True, enforce_sorted=False)
@@ -121,73 +125,6 @@ class JEPSAMEncoder(nn.Module):
         output, len_output = pad_packed_sequence(output, batch_first=True)
 
         return output, len_output, hidden, carousel        
-
-        # 2. Text feature extraction
-        # action_desc_emb = self.embedding(ad)  # .squeeze(1)
-        
-        
-
-        # if mode == "train":
-        #     # 1. Image feature extraction
-        #     feats_goal = self.image_feature_extractor(goal_state)
-        #     # feats_goal = self.img_projection(feats_goal.view(B, -1))
-        #     # print(feats_goal.shape)
-
-        #     feats_goal = feats_goal.repeat(
-        #         (1, max_len)).reshape((B, max_len, -1))
-
-        #     # 2. Text feature extraction
-        #     motor_cmd_emb = self.embedding(cmd)  # .squeeze(1)
-        #     # For each batch entry determine the length of the longest of the text sequence
-        #     lengths_max = [max(ltext, lcmd)
-        #                    for ltext, lcmd in zip(ad_lens, cmd_lens)]
-        #     # print(lengths_max)
-        # else:
-        #     # test mode
-        #     # Get sequence lenghts from action desc
-        #     lengths_max = [ltext for ltext in ad_lens]
-
-        #     # replace goal image and motor cmd with zero vectors
-        #     feats_goal = torch.zeros_like(feats_per)
-
-        #     motor_cmd_emb = torch.zeros_like(action_desc_emb)
-
-        # # print(f"feats_per: {feats_per.shape}")
-        # # print(f"feats_goal: {feats_goal.shape}")
-
-        # # 3. Feature Fusion
-        # # Optional: add a projection layer that will
-        # # print(feats_per.shape, feats_goal.shape, action_desc_emb.shape, motor_cmd_emb.shape)
-
-        # # print(
-        # #     feats_per.shape,
-        # #     feats_goal.shape,
-        # #     action_desc_emb.squeeze(1).shape,
-        # #     motor_cmd_emb.squeeze(1).shape
-        # #      )
-        # concat_feats = torch.cat((
-        #     feats_per,
-        #     feats_goal,
-        #     action_desc_emb.squeeze(1),
-        #     motor_cmd_emb.squeeze(1)
-        # ), dim=-2)  # .squeeze(1)
-
-        # # print(f"Fused feats: {concat_feats.shape}")
-
-        # # 4. Feature mixing
-        # # packed_input = concat_feats
-        # packed_input = pack_padded_sequence(
-        #     input=concat_feats,
-        #     lengths=lengths_max,
-        #     enforce_sorted=False,
-        #     batch_first=True
-        # )
-
-        # output, (hidden, carousel) = self.feature_mixing(packed_input)
-        # # print(output.shape)
-        # output, len_output = pad_packed_sequence(output, batch_first=True)
-
-        # return output, len_output, hidden, carousel
 
 
 class JEPSAMDecoder(nn.Module):

@@ -256,6 +256,8 @@ class JEPSAMDecoder(nn.Module):
     ):
 
         batch_size, max_len, num_ftrs = enc_output.shape
+        if mode !="train":
+            max_len = 11 # at test time we will specify this as the max len 
 
         # hidden
         # hidden = hidden.view(self.num_directions, self.num_layers, batch_size, -1)
