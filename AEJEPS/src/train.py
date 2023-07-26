@@ -13,6 +13,7 @@ from dataloader import get_dataloaders
 import logging
 logging.basicConfig(level="INFO")
 
+import wandb
 
 def train(
     cfg,
@@ -248,6 +249,17 @@ def run_AEJEPS(args, cfg):
     # ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}/AEJEPS_{time.time()}.pth"
     ckpt_path = f"{cfg.MODEL.CHECKPOINT_DIR}jepsam_best.bin"
 
+    # initialize W&B
+    # wandb.login(relogin=True)
+    # run = wandb.init(
+    #     name = "train " + cfg.WANDB.EXP_NAME,
+    #     reinit = True, ### Allows reinitalizing runs when you re-run this cell
+    #     # id = '3mwwdrb2',### Insert specific run id here if you want to resume a previous run
+    #     # resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
+    #     project = cfg.WANDB.PROJECT,
+    #     config = cfg.WANDB.CONFIG
+    # )
+    # sys.exit()
     # training loop
     logging.info("Training strating now...")
     for epoch in range(cfg.TRAIN.MAX_EPOCH):
@@ -288,9 +300,16 @@ def run_AEJEPS(args, cfg):
 
             best_loss = val_loss
 
+            # wandb.log({
+            #     "train_loss"                :train_loss,
+            #     "tf_rate"                   :model.decoder.tf_ratio,
+            #     "epoch"                     :epoch,
+            #     "val_loss"                  :val_loss,
+            #     })
+
     logging.info("Completed training")
     logging.info(f"Best Loss: {best_loss}")
-
+    # wandb.finish()
 
     return model, loss_history
 

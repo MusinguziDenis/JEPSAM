@@ -145,8 +145,8 @@ class SimpleJEPSAMDataset(Dataset):
         
         sample = {
             "sample_id": data_point.sample_ID,
-            "in_state": in_state,
-            "goal_state": goal_state,
+            "in_state": in_state.float(),
+            "goal_state": goal_state.float(),
             "action_desc": {
                 "raw"   : data_point.action_description,
                 "ids"   : action_description.long(),

@@ -1,20 +1,23 @@
 #./
-.ipynb_checkpoints/
+.ipynb_checkpoints
+__pycache__
 checkpoints
 # AEJEPS
+wandb/
 dataset/
 AEJEPS/checkpoints/
 .ipynb_checkpoints/
-*/.ipynb_checkpoints/*
-AEJEPS/.ipynb_checkpoints/
-AEJEPS/notebooks/.ipynb_checkpoints/
 # src
-AEJEPS/src/.ipynb_checkpoints/ 
 AEJEPS/src/checkpoints/
 AEJEPS/src/__pycache__/
 # src/utils
 AEJEPS/src/utils/__pycache__/
-AEJEPS/src/utils/.ipynb_checkpoints/ 
+
+# JEPSAM
+JEPSAM/models
+JEPSAM/logs
+JEPSAM/logs/wandb
+
 
 ## Python
 # Byte-compiled / optimized / DLL files
