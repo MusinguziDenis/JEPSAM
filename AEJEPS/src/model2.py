@@ -341,7 +341,7 @@ class JEPSAMDecoder(nn.Module):
             lang_out.append(lang_scores.unsqueeze(1))
             # draw new token: greedy decoding
             prediction_txt_t = lang_scores.argmax(dim=1)
-            print(prediction_txt_t)
+            # print(prediction_txt_t)
 
         return torch.cat(lang_out, 1)
 

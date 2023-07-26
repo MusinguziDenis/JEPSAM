@@ -164,6 +164,7 @@ def validate(
             data,
             mode="test"
         )
+        # print(cmd.shape)
 
         # loss computation
         try:
