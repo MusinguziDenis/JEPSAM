@@ -10,6 +10,8 @@ import numpy as np
 # from models import JEPSAM
 from model2 import JEPSAM
 from dataloader import get_dataloaders
+from utils.model_utils import calc_edit_distance
+import vocabulary as vocab
 
 import logging
 logging.basicConfig(level="INFO")
@@ -144,6 +146,9 @@ def validate(
         dataloader,
         desc=f"Validating [Epoch {epoch+1}/{cfg.TRAIN.MAX_EPOCH}]",
         ncols=100)
+    
+    running_lev_dist_cmd = 0.0
+    running_lev_dist_ad  = 0.0
 
     for batch_idx, data in enumerate(pbar, 0):
         in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data
@@ -180,6 +185,16 @@ def validate(
             # print()
             # print(ad_out.shape, ad.shape)
             # print(cmd_out.shape, cmd.shape)
+            
+            
+            # Greedy Decoding
+            greedy_predictions_cmd   = cmd_out.argmax(-1)
+            greedy_predictions_ad    = ad_out.argmax(-1)
+            
+            # Calculate Levenshtein Distance
+            running_lev_dist_cmd    += calc_edit_distance(greedy_predictions_cmd, cmd.squeeze(), cmd_lens, vocab, print_example = True)
+            running_lev_dist_ad     += calc_edit_distance(greedy_predictions_ad, ad.squeeze(), ad_lens+1, vocab, print_example = True)
+            
 
             loss_img, loss_ad, loss_cmd = criterion(
                 rec_per_img,
@@ -201,6 +216,8 @@ def validate(
             print("Validation results:")
             print('[Epoch %d/%d]\tAvg. Loss: %.5f\t'
                   % (epoch+1, cfg.TRAIN.MAX_EPOCH, loss))
+            print("\tVal Dist CMD {:.04f}".format(running_lev_dist_cmd))
+            print("\tVal Dist AD  {:.04f}".format(running_lev_dist_ad))
             print()
 
             return loss

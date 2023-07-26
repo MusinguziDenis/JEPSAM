@@ -31,6 +31,38 @@ from dataloader import get_dataloaders, SimpleTokenizer, JEPSAMDataset
 import vocabulary as vocab
 
 
+class MyLSTMCell(torch.nn.Module):
+    def __init__(self, input_size, hidden_size, output_size, dropout= 0, num_layers= 1):
+        super().__init__()
+
+        if num_layers == 1:
+            lstms   = torch.nn.LSTMCell(input_size, output_size)
+        else:
+            lstms   = torch.nn.Sequential()
+            lstms.append(torch.nn.LSTMCell(input_size, hidden_size))
+            for i in range(num_layers-2):
+                lstms.append(torch.nn.LSTMCell(hidden_size, hidden_size))
+            lstms.append(torch.nn.LSTMCell(hidden_size, output_size))  
+
+        self.lstm_cells     = lstms
+        self.lstm_dropout   = torch.nn.Sequential(*[torch.nn.Dropout(dropout)]*num_layers)
+
+    def __len__(self):
+        return len(self.lstm_cells)
+
+    def lstm_step(self, lstm_input, hidden_state):
+        # hidden_state is a list
+        for i in range(len(self.lstm_cells)):
+            # print(hidden_state[i].shape)
+            hidden_state[i] = self.lstm_cells[i](lstm_input, hidden_state[i])
+            lstm_input      = hidden_state[i][0]
+            lstm_input      = self.lstm_dropout[i](lstm_input)
+        return lstm_input, hidden_state
+    
+    def forward(self, lstm_input, hidden_state):
+        return self.lstm_step(lstm_input, hidden_state)
+    
+
 class JEPSAMEncoder(nn.Module):
     def __init__(
         self,
@@ -184,6 +216,12 @@ class JEPSAMDecoder(nn.Module):
         self.activation_motor = getattr(nn, cfg.AEJEPS.ACTIVATION_MOTOR)()
 
         # action desc. decoding layer
+        self.language_decoder = MyLSTMCell(input_size = cfg.AEJEPS.EMBEDDING_DIM, 
+                                           hidden_size = decoder_hidden_dim, 
+                                           output_size = decoder_hidden_dim,
+                                           dropout= 0, 
+                                           num_layers= cfg.AEJEPS.NUM_LAYERS_LANG)
+        
         self.lang_decoder = nn.LSTMCell(
             input_size=cfg.AEJEPS.EMBEDDING_DIM,
             hidden_size=decoder_hidden_dim
@@ -229,6 +267,9 @@ class JEPSAMDecoder(nn.Module):
         hidden, carousel = self._rearrange_states(hidden, carousel)
 
         cmd_h_t, lang_h_t = (hidden, carousel), (hidden, carousel)
+        
+        # Repeat the language h_t to match the number of LSTM cells
+        lang_h_t = [lang_h_t for i in range(self.cfg.AEJEPS.NUM_LAYERS_LANG)]
 
         # Unsqueeze to match expected input by transposed convolutions
         self.hidden = hidden.unsqueeze(0)
@@ -285,19 +326,22 @@ class JEPSAMDecoder(nn.Module):
         # Initialize the predictions with [SOS]
         prediction_txt_t = torch.ones(batch_size, 1).to(
             self.device).long() * self.cfg.DATASET.SOS
-        # print(prediction_txt_t.device)
+        
+        lang_c_t   = hidden
         for t in range(max_len):
             char = self.embedding(prediction_txt_t).squeeze(1)
             # hidden state at time step t for each RNN
-            hidden, lang_c_t = self.lang_decoder(char, hidden)
+            hidden, lang_c_t = self.language_decoder(char, lang_c_t)
             # project hidden state to vocab
-            lang_scores = self.activation_lang(self.lang_head(hidden))
+            lang_scores = self.activation_lang(self.lang_head(hidden)) #changed the argument from hidden 
             # update hidden states
-            hidden = (hidden, lang_c_t)
+            # hidden = (hidden, lang_c_t)
+            # hidden = lang_c_t
             # store newly generated token
             lang_out.append(lang_scores.unsqueeze(1))
             # draw new token: greedy decoding
             prediction_txt_t = lang_scores.argmax(dim=1)
+            print(prediction_txt_t)
 
         return torch.cat(lang_out, 1)
 
