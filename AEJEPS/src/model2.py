@@ -173,6 +173,7 @@ class JEPSAMDecoder(nn.Module):
         self.cnn_backbone_name = cnn_backbone_name
         self.num_directions = 2 if cfg.AEJEPS.IS_BIDIRECTIONAL else 1
         decoder_hidden_dim = self.num_directions * cfg.AEJEPS.HIDDEN_DIM
+        self.tf_ratio = self.cfg.TRAIN.TF_RATE
 
         # Layers
         # tokenizer
@@ -255,6 +256,8 @@ class JEPSAMDecoder(nn.Module):
         len_enc_output,
         hidden,
         carousel,
+        y_ad = None,
+        y_cmd = None,
         mode: str = "train"
     ):
 
@@ -277,7 +280,7 @@ class JEPSAMDecoder(nn.Module):
         # run decoding steps
         # generate action desc from latent representation
         lang_out = self._decode_action_description(
-            hidden=lang_h_t, batch_size=batch_size, max_len=max_len)
+            hidden=lang_h_t, batch_size=batch_size, max_len=max_len, y = y_ad)
         # generate motor cmd from latent representation
         motor_out = self._decode_motor_command(
             hidden=cmd_h_t, batch_size=batch_size, max_len=max_len)
@@ -316,11 +319,15 @@ class JEPSAMDecoder(nn.Module):
         self,
         hidden,
         batch_size: int,
-        max_len: int
+        max_len: int,
+        y = None
     ):
         """
         """
         # print(next(self.lang_decoder.parameters()).is_cuda)
+        
+        if y is not None:
+            max_len = y.shape[-1]
 
         lang_out = []
         # Initialize the predictions with [SOS]
@@ -329,7 +336,12 @@ class JEPSAMDecoder(nn.Module):
         
         lang_c_t   = hidden
         for t in range(max_len):
-            char = self.embedding(prediction_txt_t).squeeze(1)
+            if t > 0 and y is not None:
+                p = np.random.uniform(0,1)
+                if (p<= self.tf_ratio):
+                    char = self.embedding(y[:,:, t-1]).squeeze(1)
+            else:
+                char = self.embedding(prediction_txt_t).squeeze(1)
             # hidden state at time step t for each RNN
             hidden, lang_c_t = self.language_decoder(char, lang_c_t)
             # project hidden state to vocab
@@ -450,13 +462,28 @@ class JEPSAM(nn.Module):
         o, lo, h, c = self.encoder(inp, mode=mode)
 
         # decode
-        reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
-            enc_output=o,
-            len_enc_output=lo,
-            hidden=h,
-            carousel=c, 
-            mode=mode
-        )
+        
+        if mode == "train":
+            _, _, ad, cmd, _, _ = inp
+            
+            reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
+                enc_output=o,
+                len_enc_output=lo,
+                hidden=h,
+                carousel=c,
+                y_ad = ad.to(device),
+                y_cmd = cmd.to(device), 
+                mode=mode
+            )
+            
+        else:
+            reconstructed_image, goal_image, decoded_action_desc, decoded_cmd = self.decoder(
+                enc_output=o,
+                len_enc_output=lo,
+                hidden=h,
+                carousel=c,
+                mode=mode
+            )
 
         return reconstructed_image, goal_image, decoded_action_desc, decoded_cmd
 

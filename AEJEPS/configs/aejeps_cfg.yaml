@@ -50,6 +50,7 @@ TRAIN:
   GPU               : True  # Whether to use GPU or not when it is available
   GPU_DEVICE        : "cuda:0"
   NUM_WORKERS       : 4
+  TF_RATE           : 1.0
 
 MODEL:
   CNN_BACKBONES      : {
