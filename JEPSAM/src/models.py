@@ -1,63 +1,152 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from torchinfo import summary
 
 from utils.ae_resnet import get_configs, ResNetEncoder, ResNetDecoder
 
 from config import Config as cfg
 
+from dataloader import get_dataloaders
 
+import os.path as osp
 
+import pandas as pd
 
-class JEPSAMEncder(nn.Module):
+import logging
+logging.basicConfig(level="INFO")
+
+class EpisodicEncoder(nn.Module):
     def __init__(
-            self,
-            cnn_backbone_name,
-            vocab_size,
-            embedding_dim,
-            hidden_dim,
-            latent_dim
+        self, 
+        cnn_backbone_name:str="resnet50",
+        hidden_dim:int=cfg.MODEL["CNN_FC_DIM"]
     ):
         super().__init__()
-        # CNN ftr extractor
+        
         configs, bottleneck = get_configs(cnn_backbone_name)
+        
+        self.feature_extractor = ResNetEncoder(configs, bottleneck)
+        
+        n_ftrs = 2048 * (cfg.IMAGE_SIZE // 32) * (cfg.IMAGE_SIZE // 32)
+        self.projection_layer = nn.Linear(
+            in_features=n_ftrs,
+            out_features=hidden_dim
+        )
+        
 
-        self.image_feature_extractor = nn.Sequential(
-            ResNetEncoder(configs, bottleneck),
-            nn.Flatten(),
-            nn.Linear(in_features=2048*7*7,
-                      out_features=cfg.MODEL["CNN_FC_DIM"])
+    def forward(self, x_perceived):
+        
+        B, C, H, W = x_perceived.shape
+        
+        ftrs = self.feature_extractor(x_perceived)
+        # print("ftrs: ", ftrs.shape)
+        out = self.projection_layer(ftrs.view(B, -1))
+        # print("out: ", out.shape)
+        
+        return out
+
+class SemanticEncoder(nn.Module):
+    def __init__(
+        self, 
+        vocab_size:int=cfg.DATASET["NUM_TOTAL_TOKENS"], 
+        embedding_dim:int=cfg.MODEL["CNN_FC_DIM"],
+        num_layers:int=2
+    ):
+        super().__init__()
+        
+        self.embedding = nn.Embedding(
+            num_embeddings=vocab_size, 
+            embedding_dim=embedding_dim,
+            # padding_idx=cfg.DATASET["PAD"]
+        )
+        
+        self.action_encoder = nn.LSTM(
+            input_size=embedding_dim, 
+            hidden_size=embedding_dim // 2,
+            num_layers=num_layers,
+            bidirectional = True,
+            batch_first=True
+        ) 
+
+    def forward(self, packed_ad, ad_lens):
+        
+        # Unpack the packed sequence
+        input_data, batch_sizes, _, _ = packed_ad
+        embedded = self.embedding(input_data)
+        # Pack the embedded sequence back
+        packed_embedded = pack_padded_sequence(embedded, ad_lens, enforce_sorted=False, batch_first=True)
+        # Apply LSTM on the packed sequence
+        packed_output, (h_n, c_n) = self.action_encoder(packed_embedded)
+        # Unpack the LSTM output
+        out, _ = pad_packed_sequence(packed_output, batch_first=True)
+        
+        return out, h_n, c_n
+    
+class JEPSAMEncoder(nn.Module):
+    def __init__(
+            self,
+            vocab_size:int=cfg.DATASET["NUM_TOTAL_TOKENS"], 
+            embedding_dim:int=cfg.MODEL["CNN_FC_DIM"],
+            num_layers:int=2
+    ):
+        super().__init__()
+        
+        # Semantic Encoder
+        self.semantic_encoder = SemanticEncoder(
+            vocab_size=vocab_size,
+            num_layers=num_layers,
+            embedding_dim=embedding_dim
         )
 
-        # Semantic Embedding
-        self.embedding = SemanticEmbedding(vocab_size, embedding_dim)
-
-        # Encoder
-        self.action_encoder = nn.LSTM(embedding_dim, hidden_dim)
-
-        # Episodic Memory
-        self.episodic_memory = EpisodicEncoder(hidden_dim, hidden_dim)
+        # Episodic Encoder
+        self.episodic_encoder = EpisodicEncoder(hidden_dim=embedding_dim)
 
         # Features mixer
-        self.feature_mixer = nn.Linear(2*hidden_dim, latent_dim)
+        self.feature_mixer = nn.LSTM(
+            input_size=embedding_dim*2, 
+            hidden_size=embedding_dim,
+            num_layers= num_layers,
+            bidirectional = True,
+            batch_first=True
+        )
 
-    def forward(self, x_action_desc, x_img):
-        # Semantic Embedding & encoding
-        semantic_embed = self.embedding(x_action_desc)
-        semantic_out, (hidden, cell) = self.action_encoder(semantic_embed)
+    def forward(self, x_ad, x_ad_lens, x_perceived):
+        # pack padded inputs 
+        packed = pack_padded_sequence(
+            input=x_ad, 
+            lengths= x_ad_lens, 
+            batch_first=True, 
+            enforce_sorted=False
+        )
+        # 1. Semantic Embedding & encoding
+        semantic_enc, h_ad, c_ad = self.semantic_encoder(packed, x_ad_lens)
+        _, seq_len, _ = semantic_enc.shape
+        logging.info(f"Semantic encoding: \t\t{semantic_enc.shape}")
+        
+        # 2. Episodic encoding
+        episodic_enc = self.episodic_encoder(x_perceived)
+        logging.info(f"Episodic encoding: \t\t{episodic_enc.shape}")
+        
+        repeated_ep_emb = episodic_enc.unsqueeze(1).expand(
+            episodic_enc.shape[0], 
+            seq_len, 
+            episodic_enc.shape[-1]
+        )
+        logging.info(f"Repeated embedding: \t\t{repeated_ep_emb.shape}")
+        # 3. Fusion
+        concat_ftrs = torch.cat((repeated_ep_emb, semantic_enc), dim=-1)
+        logging.info(f"Concat ftrs: \t\t\t{concat_ftrs.shape}")
 
-        # Episodic Memory
-        embedded_state = self.image_feature_extractor(x_img)
-        episodic_out, _ = self.episodic_memory(embedded_state)
+        fused_ftrs, (h_fused, c_fused) = self.feature_mixer(concat_ftrs)
+        logging.info(f"Fused features: \t\t{fused_ftrs.shape}")
 
-        # Fusion
-        concatenated_input = torch.cat((episodic_out, semantic_out), dim=1)
-        encoder_output = self.feature_mixer(concatenated_input)
-
-        return encoder_output, (hidden, cell)
+        return fused_ftrs, h_fused, c_fused, h_ad, c_ad
 
 
-class JEPSAMDecder(nn.Module):
+class JEPSAMDecoder(nn.Module):
     def __init__(
         self,
         embedding_dim,
@@ -93,7 +182,7 @@ class JEPSAM(nn.Module):
         super().__init__()
 
         # Encoder
-        self.encoder = JEPSAMEncder(
+        self.encoder = JEPSAMEncoder(
             cnn_backbone_name,
             vocab_size,
             embedding_dim,
@@ -132,4 +221,36 @@ class JEPSAM(nn.Module):
 
 
 if __name__ == "__main__":
-    pass
+    logging.info("Checking data loading pipeline")
+    tdf = pd.read_csv(
+        osp.join(cfg.DATASET['PATH'], "v1/updated_train.csv")
+    )
+
+    train_dl, val_dl = get_dataloaders(
+        train_df=tdf
+    )
+
+    # fetch example from dataloader
+    for data in train_dl:
+        in_state, goal_state, ad, cmd, ad_lens, cmd_lens = data[0], data[1], data[2], data[3], data[4], data[5]
+        # print("In\t\t\t:", in_state.shape)
+        # print("Action desc\t\t:", ad.shape)
+        # print("Action desc (len)\t:", ad_lens.shape)    
+        break
+
+    # build encoder
+    encoder = JEPSAMEncoder().to(cfg.TRAIN["GPU_DEVICE"])
+    summary(model=encoder)
+
+    # forward through encoder
+
+    E, hn_E, cn_E, hn_ad, cn_ad = encoder(
+        x_ad=ad.to(cfg.TRAIN["GPU_DEVICE"]), 
+        x_ad_lens=ad_lens, 
+        x_perceived=in_state.to(cfg.TRAIN["GPU_DEVICE"])
+        )
+
+
+    # build decoder
+    # decoder = JEPSAMDecoder().to(cfg.TRAIN["GPU_DEVICE"])
+    # summary(model=decoder)
