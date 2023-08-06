@@ -124,24 +124,24 @@ class JEPSAMEncoder(nn.Module):
         # 1. Semantic Embedding & encoding
         semantic_enc, h_ad, c_ad = self.semantic_encoder(packed, x_ad_lens)
         _, seq_len, _ = semantic_enc.shape
-        logging.info(f"Semantic encoding: \t\t{semantic_enc.shape}")
+        # logging.info(f"Semantic encoding: \t\t{semantic_enc.shape}")
         
         # 2. Episodic encoding
         episodic_enc = self.episodic_encoder(x_perceived)
-        logging.info(f"Episodic encoding: \t\t{episodic_enc.shape}")
+        # logging.info(f"Episodic encoding: \t\t{episodic_enc.shape}")
         
         repeated_ep_emb = episodic_enc.unsqueeze(1).expand(
             episodic_enc.shape[0], 
             seq_len, 
             episodic_enc.shape[-1]
         )
-        logging.info(f"Repeated embedding: \t\t{repeated_ep_emb.shape}")
+        # logging.info(f"Repeated embedding: \t\t{repeated_ep_emb.shape}")
         # 3. Fusion
         concat_ftrs = torch.cat((repeated_ep_emb, semantic_enc), dim=-1)
-        logging.info(f"Concat ftrs: \t\t\t{concat_ftrs.shape}")
+        # logging.info(f"Concat ftrs: \t\t\t{concat_ftrs.shape}")
 
         fused_ftrs, (h_fused, c_fused) = self.feature_mixer(concat_ftrs)
-        logging.info(f"Fused features: \t\t{fused_ftrs.shape}")
+        # logging.info(f"Fused features: \t\t{fused_ftrs.shape}")
 
         return fused_ftrs, h_fused, c_fused, h_ad, c_ad
 
