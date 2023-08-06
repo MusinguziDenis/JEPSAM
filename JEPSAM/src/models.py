@@ -250,7 +250,7 @@ if __name__ == "__main__":
         x_perceived=in_state.to(cfg.TRAIN["GPU_DEVICE"])
         )
 
-
+    # logging.info(f"(Out) hidden rep: \t\t{E.shape}")
     # build decoder
     # decoder = JEPSAMDecoder().to(cfg.TRAIN["GPU_DEVICE"])
     # summary(model=decoder)
