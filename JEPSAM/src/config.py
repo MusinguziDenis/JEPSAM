@@ -17,8 +17,10 @@ class Config:
     EXP_NAME                     = "unicorn-v1"
     IMAGE_SIZE                   = 128  # Image size
     DATASET = {
-        "PATH"                      : os.path.join(PROJECT_DIR, "..", "dataset/"),         
-        "TARGET_VOCABULARY_SIZE"    : len(vocab.MOTOR_COMMANDS), # number of unique tokens in the vocabulary (cmds)
+        "PATH"                      : os.path.join(PROJECT_DIR, "..", "dataset/"),  
+        "NUM_TOTAL_TOKENS"          : len(vocab.ACTION_DESCRIPTION) + len(vocab.ACTION_DESCRIPTION),
+        "SOURCE_VOCABULARY_SIZE"    : len(vocab.ACTION_DESCRIPTION), # number of unique tokens in the source vocabulary (ads)
+        "TARGET_VOCABULARY_SIZE"    : len(vocab.MOTOR_COMMANDS), # number of unique tokens in the target vocabulary (cmds)
         "SOS"                       : 48,   # [SOS] token index in vocabulary
         "EOS"                       : 46,   # [EOS] token index in vocabulary
         "PAD"                       : 47,   # [PAD] token index in vocabulary
