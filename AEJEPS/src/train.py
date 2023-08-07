@@ -25,6 +25,7 @@ def train(
     criterion,
     epoch
 ):
+    model.train()
 
     curr_loss = 0.
 
@@ -41,7 +42,7 @@ def train(
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
         # forward
-        rec_per_img, goal_img_out, ad_out, cmd_out = model(data)
+        rec_per_img, goal_img_out, ad_out, cmd_out, lang_out= model(data)
 
         # loss computation
         try:
@@ -51,7 +52,14 @@ def train(
             # reshape model outputs for CELoss too
             ad_out  = ad_out[:, :ad_len, :]
             ad_out_ = ad_out[:, 1:].reshape(-1, ad_out.shape[2])
+            
+            # reshape lang output for CELoss
+            lang_out = lang_out[:, :ad_len, :]
+            lang_out_ = lang_out[:, 1:].reshape(-1, lang_out.shape[2])
             # print(f"ad_: {ad_.shape} - ad_out_: {ad_out_.shape}")
+            
+            # print("Lang out shape", lang_out_.shape)
+            # print("ad out shape", ad_out_.shape)
 
             # CMD
             cmd_len = min(cmd.shape[-1], cmd_out.shape[-2])
@@ -66,7 +74,7 @@ def train(
             loss_img, loss_ad, loss_cmd = criterion(
                 rec_per_img,
                 goal_img_out,
-                ad_out_,
+                lang_out_,# ad_out_,
                 cmd_out_,
                 in_state,
                 goal_state,
@@ -147,6 +155,8 @@ def validate(
         desc=f"Validating [Epoch {epoch+1}/{cfg.TRAIN.MAX_EPOCH}]",
         ncols=100)
     
+    model.eval()
+    
     running_lev_dist_cmd = 0.0
     running_lev_dist_ad  = 0.0
 
@@ -160,7 +170,7 @@ def validate(
         goal_state = goal_state.to(cfg.TRAIN.GPU_DEVICE)
 
         # forward
-        rec_per_img, goal_img_out, ad_out, cmd_out = model(
+        rec_per_img, goal_img_out, ad_out, cmd_out, lang_out = model(
             data,
             mode="test"
         )
